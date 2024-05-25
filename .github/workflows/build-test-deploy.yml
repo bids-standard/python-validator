@@ -54,6 +54,12 @@ jobs:
           - os: ubuntu-latest
             python-version: '3.8'
             dependencies: 'min'
+        exclude:
+          # Skip pre-release tests for Pythons out of SPEC0
+          - python-version: 3.8
+            dependencies: pre
+          - python-version: 3.9
+            dependencies: pre
 
     env:
       DEPENDS: ${{ matrix.dependencies }}

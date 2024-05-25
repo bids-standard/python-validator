@@ -1,8 +1,13 @@
 on:
   push:
     branches: [main]
+    tags: ["*"]
   pull_request:
     branches: [main]
+  release:
+    types:
+      - published
+
   schedule:
     - cron: '30 12 1 * *'
   workflow_dispatch:

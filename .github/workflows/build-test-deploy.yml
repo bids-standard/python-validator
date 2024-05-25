@@ -70,11 +70,20 @@ jobs:
         run: |
           git config --global user.email "bids.maintenance@gmail.com"
           git config --global user.name "bids-maintenance"
-      - name: Set up Python ${{ matrix.python-version }}
+
+      - name: Set up Python ${{ matrix.python-version }} via conda
         uses: conda-incubator/setup-miniconda@v3
+        if: matrix.os == 'ubuntu-latest'
         with:
           auto-update-conda: true
           python-version: ${{ matrix.python-version }}
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        if: matrix.os != 'ubuntu-latest'
+        with:
+          python-version: ${{ matrix.python-version }}
+          allow-prereleases: true
 
       - name: Install git-annex ubuntu
         if: matrix.os == 'ubuntu-latest'

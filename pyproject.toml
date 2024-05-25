@@ -28,7 +28,11 @@ dependencies = [
 [project.urls]
 Homepage = "https://github.com/bids-standard/bids-validator"
 
+[tool.setuptools]
+package-dir = {"" = "src"}
+
 [tool.setuptools.packages.find]
+where = ["src"]
 include = ["bids_validator*"]
 
 [tool.setuptools.package-data]
@@ -37,7 +41,7 @@ bids_validator = ["*/*.json"]
 [tool.versioneer]
 VCS = "git"
 style = "pep440"
-versionfile_source = "bids_validator/_version.py"
+versionfile_source = "src/bids_validator/_version.py"
 versionfile_build = "bids_validator/_version.py"
 tag_prefix = "v"
 parentdir_prefix = ""

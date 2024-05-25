@@ -100,6 +100,8 @@ jobs:
         run: tox -v --exit-and-dump-after 1200
       - uses: codecov/codecov-action@v4
         if: ${{ always() }}
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Check formatting
         run: |

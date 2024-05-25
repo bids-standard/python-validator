@@ -19,13 +19,20 @@ defaults:
 
 jobs:
   build:
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        platform: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
         python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
+        dependencies: ['full', 'pre']
+        include:
+          - os: ubuntu-latest
+            python-version: '3.8'
+            dependencies: 'min'
 
-    runs-on: ${{ matrix.platform }}
+    env:
+      DEPENDS: ${{ matrix.dependencies }}
 
     steps:
       - uses: actions/checkout@v4

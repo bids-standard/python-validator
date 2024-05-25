@@ -32,6 +32,7 @@ jobs:
     name: Build & verify package
     runs-on: ubuntu-latest
     permissions:
+      id-token: write
       attestations: write
     steps:
       - uses: actions/checkout@v4

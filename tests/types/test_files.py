@@ -1,4 +1,5 @@
 import attrs
+
 from bids_validator.types.files import FileTree
 
 

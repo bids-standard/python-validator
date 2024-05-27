@@ -1,4 +1,5 @@
 """Validation class for BIDS projects."""
+
 import logging
 import os
 import re
@@ -139,8 +140,10 @@ class BIDSValidator:
             path = path.replace(os.sep, '/')
 
         if not path.startswith('/'):
-            raise ValueError("Path must be relative to root of a BIDS dataset,"
-                             " and must include a leading forward slash `/`.")
+            raise ValueError(
+                'Path must be relative to root of a BIDS dataset,'
+                ' and must include a leading forward slash `/`.'
+            )
 
         for regex in cls.regexes:
             match = re.match(regex, path[1:])

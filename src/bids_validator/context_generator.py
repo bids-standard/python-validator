@@ -148,7 +148,7 @@ def generate_attrs_classes_from_schema(
 
 
 def populate_namespace(attrs_class: type, namespace: Dict[str, Any]) -> None:
-    """Populate a namespace with nested attrs classes
+    """Populate a namespace with nested attrs classes.
 
     Parameters
     ----------

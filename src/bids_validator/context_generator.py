@@ -97,8 +97,8 @@ attrs data class auto-generated from BIDS schema
 
 Attributes
 ----------
-{''.join([f'{k}: {v.type.__name__}\n' for k, v in attributes.items()])}
 """
+            + '\n'.join([f'{k}: {v.type.__name__}' for k, v in attributes.items()]),
         },
     )
 

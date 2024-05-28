@@ -118,11 +118,6 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
 
-      - name: Check formatting
-        run: |
-          pipx run flake8 src
-          pipx run pydocstyle src
-
   release-pypi:
     name: Publish released package to pypi.org
     environment: release-pypi

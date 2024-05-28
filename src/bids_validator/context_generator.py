@@ -37,6 +37,7 @@ def get_schema(url: str | None = None) -> Dict[str, Any]:
     -------
     Dict[str, Any]
         The loaded schema as a dictionary.
+
     """
     if url is None:
         return bst.schema.load_schema()
@@ -69,6 +70,7 @@ def create_attrs_class(
     -------
     cls : type
         The dynamically created attrs class.
+
     """
     attributes = {}
     for prop_name, prop_info in properties.items():
@@ -133,6 +135,7 @@ def generate_attrs_classes_from_schema(
     -------
     cls : type
         The root class created from the schema.
+
     """
     if 'properties' not in schema:
         raise ValueError("Invalid schema: 'properties' field is required")
@@ -145,7 +148,7 @@ def generate_attrs_classes_from_schema(
 
 
 def populate_namespace(attrs_class: type, namespace: Dict[str, Any]) -> None:
-    """Populate a namespace with nested attrs classes
+    """Populate a namespace with nested attrs classes.
 
     Parameters
     ----------
@@ -153,6 +156,7 @@ def populate_namespace(attrs_class: type, namespace: Dict[str, Any]) -> None:
         The root attrs class to add to the namespace.
     namespace : Dict[str, Any]
         The namespace to populate with nested classes.
+
     """
     for attr in attrs_class.__attrs_attrs__:
         attr_type = attr.type
@@ -179,6 +183,7 @@ def load_schema_into_namespace(
         The namespace to load the schema into.
     root_class_name : str
         The name of the root class to create.
+
     """
     attrs_class = generate_attrs_classes_from_schema(schema, root_class_name)
     namespace[root_class_name] = attrs_class

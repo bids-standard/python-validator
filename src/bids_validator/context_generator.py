@@ -1,3 +1,18 @@
+"""Utilities for generating validation context classes from a BIDS schema.
+
+For default contexts based on the installed BIDS schema, use the `context` module.
+These functions allow generating classes from alternative schemas.
+
+Basic usage:
+
+.. python::
+
+    from bids_validator.context_generator import get_schema, load_schema_into_namespace
+
+    schema = get_schema('https://bids-specification.readthedocs.io/en/stable/schema.json')
+    load_schema_into_namespace(schema['meta']['context']['context'], globals(), 'Context')
+"""
+
 from typing import Any
 
 import attrs

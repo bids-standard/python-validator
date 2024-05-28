@@ -1,3 +1,5 @@
+"""Validation context for schema-based BIDS validation."""
+
 from .context_generator import get_schema, load_schema_into_namespace
 
 schema = get_schema()

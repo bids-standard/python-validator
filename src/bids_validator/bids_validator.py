@@ -32,6 +32,7 @@ class LoggingContext:
         Handler to add temporarily. If None, no handler is added.
     close : bool
         Whether to close the handler after removing it. Defaults to True.
+
     """
 
     def __init__(self, logger, level=None, handler=None, close=True):

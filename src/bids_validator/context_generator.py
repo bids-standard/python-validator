@@ -13,6 +13,7 @@ Basic usage:
     load_schema_into_namespace(schema['meta']['context']['context'], globals(), 'Context')
 """
 
+import json
 from typing import Any, Dict, List, Union
 
 import attrs
@@ -51,20 +52,56 @@ def get_schema(url: Union[str, None] = None) -> Dict[str, Any]:
         return client.get(url).json()
 
 
+def snake_to_pascal(val: str):
+    """Convert snake_case string to PascalCase."""
+    return ''.join(sub.capitalize() for sub in val.split('_'))
+
+
+def typespec_to_type(name: str, typespec: Dict[str, Any]):
+    """Convert JSON-schema style specification to type and metadata dictionary."""
+    tp = typespec.get('type')
+    if not tp:
+        raise ValueError(f'Invalid typespec: {json.dumps(typespec)}')
+    metadata = {key: typespec[key] for key in ('name', 'description') if key in typespec}
+    if tp == 'object':
+        properties = typespec.get('properties')
+        if properties:
+            type_ = create_attrs_class(name, properties=properties, metadata=metadata)
+        else:
+            type_ = Dict[str, Any]
+    elif tp == 'array':
+        if 'items' in typespec:
+            subtype, md = typespec_to_type(name, typespec['items'])
+        else:
+            subtype = Any
+        type_ = List[subtype]
+    else:
+        type_ = {
+            'number': float,
+            'float': float,  # Fix in schema
+            'string': str,
+            'integer': int,
+            'int': int,  # Fix in schema
+        }[tp]
+    return type_, metadata
+
+
 def create_attrs_class(
-    class_name: str, description: Union[str, None], properties: Dict[str, Any]
+    class_name: str,
+    properties: Dict[str, Any],
+    metadata: Dict[str, Any],
 ) -> type:
     """Dynamically create an attrs class with the given properties.
 
     Parameters
     ----------
-    class_name : str
+    class_name
         The name of the class to create.
-    description : str | None
-        A short description of the class, included in the docstring.
-    properties : Dict[str, Any]
+    properties
         A dictionary of property names and their corresponding schema information.
         If a nested object is encountered, a nested class is created.
+    metadata
+        A short description of the class, included in the docstring.
 
     Returns
     -------
@@ -74,39 +111,17 @@ def create_attrs_class(
     """
     attributes = {}
     for prop_name, prop_info in properties.items():
-        prop_type = prop_info.get('type')
-
-        if prop_type == 'object':
-            nested_class = create_attrs_class(
-                prop_name.capitalize(),
-                prop_info.get('description'),
-                prop_info.get('properties', {}),
-            )
-            attributes[prop_name] = attrs.field(type=nested_class, default=None)
-        elif prop_type == 'array':
-            item_info = prop_info.get('items', {})
-            item_type = item_info.get('type')
-
-            if item_type == 'object':
-                nested_class = create_attrs_class(
-                    prop_name.capitalize(),
-                    item_info.get('description'),
-                    item_info.get('properties', {}),
-                )
-                attributes[prop_name] = attrs.field(type=List[nested_class], default=None)
-            else:
-                # Default to List[Any] for arrays of simple types
-                attributes[prop_name] = attrs.field(type=List[Any], default=None)
-        else:
-            # Default to Any for simple types
-            attributes[prop_name] = attrs.field(type=Any, default=None)
+        type_, md = typespec_to_type(prop_name, prop_info)
+        attributes[prop_name] = attrs.field(
+            type=type_, repr=prop_name != 'schema', default=None, metadata=md
+        )
 
     return attrs.make_class(
-        class_name,
+        snake_to_pascal(class_name),
         attributes,
         class_body={
             '__doc__': f"""\
-{description}
+{metadata.get('description', '')}
 
 attrs data class auto-generated from BIDS schema
 
@@ -140,11 +155,8 @@ def generate_attrs_classes_from_schema(
     if 'properties' not in schema:
         raise ValueError("Invalid schema: 'properties' field is required")
 
-    return create_attrs_class(
-        root_class_name,
-        schema.get('description'),
-        schema['properties'],
-    )
+    type_, _ = typespec_to_type(root_class_name, schema)
+    return type_
 
 
 def populate_namespace(attrs_class: type, namespace: Dict[str, Any]) -> None:

@@ -13,7 +13,7 @@ Basic usage:
     load_schema_into_namespace(schema['meta']['context']['context'], globals(), 'Context')
 """
 
-from typing import Any
+from typing import Any, Union
 
 import attrs
 import bidsschematools as bst
@@ -24,7 +24,7 @@ LATEST_SCHEMA_URL = 'https://bids-specification.readthedocs.io/en/latest/schema.
 STABLE_SCHEMA_URL = 'https://bids-specification.readthedocs.io/en/stable/schema.json'
 
 
-def get_schema(url: str | None = None) -> dict[str, Any]:
+def get_schema(url: Union[str, None] = None) -> dict[str, Any]:
     """Load a BIDS schema from a URL or return the bundled schema if no URL is provided.
 
     Parameters
@@ -52,7 +52,7 @@ def get_schema(url: str | None = None) -> dict[str, Any]:
 
 
 def create_attrs_class(
-    class_name: str, description: str | None, properties: dict[str, Any]
+    class_name: str, description: Union[str, None], properties: dict[str, Any]
 ) -> type:
     """Dynamically create an attrs class with the given properties.
 

@@ -3,16 +3,19 @@
 import os
 import posixpath
 import stat
+from pathlib import Path
 from typing import Dict, Self, Union
 
 import attrs
 
+__all__ = ('FileTree',)
+
 
 @attrs.define
-class DummyDirentry:
+class UserDirEntry:
     """Partial reimplementation of :class:`os.DirEntry`.
 
-    :class:`os.DirEntry` can't be instantiated, but this can.
+    :class:`os.DirEntry` can't be instantiated from Python, but this can.
     """
 
     path: str = attrs.field(repr=False, converter=os.fspath)
@@ -53,18 +56,18 @@ class DummyDirentry:
         return stat.S_ISLNK(_stat.st_mode)
 
 
-def as_direntry(obj: os.PathLike) -> Union[os.DirEntry, DummyDirentry]:
+def as_direntry(obj: os.PathLike) -> Union[os.DirEntry, UserDirEntry]:
     """Convert PathLike into DirEntry-like object."""
     if isinstance(obj, os.DirEntry):
         return obj
-    return DummyDirentry(obj)
+    return UserDirEntry(obj)
 
 
 @attrs.define
 class FileTree:
     """Represent a FileTree with cached metadata."""
 
-    direntry: Union[os.DirEntry, DummyDirentry] = attrs.field(repr=False, converter=as_direntry)
+    direntry: Union[os.DirEntry, UserDirEntry] = attrs.field(repr=False, converter=as_direntry)
     parent: Union['FileTree', None] = attrs.field(repr=False, default=None)
     is_dir: bool = attrs.field(default=False)
     children: Dict[str, 'FileTree'] = attrs.field(repr=False, factory=dict)
@@ -95,12 +98,12 @@ class FileTree:
             }
         return self
 
-    def __contains__(self, relpath: os.PathLike):
-        parts = posixpath.split(relpath)
+    def __contains__(self, relpath: os.PathLike) -> bool:
+        parts = Path(relpath).parts
         if len(parts) == 0:
             return False
         child = self.children.get(parts[0], False)
-        return child and posixpath.join(*parts[1:]) in child
+        return child and (len(parts) == 1 or posixpath.join(*parts[1:]) in child)
 
     def __fspath__(self):
         return self.direntry.path

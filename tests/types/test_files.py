@@ -1,3 +1,5 @@
+"""Tests for bids_validator.types.files."""
+
 import attrs
 
 from bids_validator.types.files import FileTree

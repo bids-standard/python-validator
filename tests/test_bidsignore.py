@@ -2,7 +2,8 @@
 
 import pytest
 
-from bids_validator.bidsignore import compile_pat
+from bids_validator.bidsignore import Ignore, compile_pat
+from bids_validator.types.files import FileTree
 
 
 @pytest.mark.parametrize(
@@ -47,3 +48,19 @@ def test_skipped_patterns():
     assert compile_pat('') is None
     assert compile_pat('# commented line') is None
     assert compile_pat('     ') is None
+
+
+def test_Ignore_ds000117(examples):
+    """Test that we can load a .bidsignore file and match a file."""
+    ds000117 = FileTree.read_from_filesystem(examples / 'ds000117')
+    ignore = Ignore.from_file(ds000117.children['.bidsignore'])
+    assert 'run-*_echo-*_FLASH.json' in ignore.patterns
+    assert 'sub-01/ses-mri/anat/sub-01_ses-mri_run-1_echo-1_FLASH.nii.gz' in ds000117
+    assert ignore.match('sub-01/ses-mri/anat/sub-01_ses-mri_run-1_echo-1_FLASH.nii.gz')
+    flash_file = (
+        ds000117.children['sub-01']
+        .children['ses-mri']
+        .children['anat']
+        .children['sub-01_ses-mri_run-1_echo-1_FLASH.nii.gz']
+    )
+    assert ignore.match(flash_file.relative_path)

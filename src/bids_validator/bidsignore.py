@@ -3,16 +3,11 @@
 import os
 import re
 from functools import lru_cache
-from typing import Union
+from typing import Self, Union
 
 import attrs
 
 from .types.files import FileTree
-
-
-def filter_file_tree(filetree: FileTree) -> FileTree:
-    """Stub."""
-    return filetree
 
 
 @lru_cache
@@ -69,9 +64,13 @@ def compile_pat(pattern: str) -> Union[re.Pattern, None]:
 
 @attrs.define
 class Ignore:
-    """Collection of .gitignore-style patterns."""
+    """Collection of .gitignore-style patterns.
+
+    Tracks successfully matched files for reporting.
+    """
 
     patterns: list[str] = attrs.field(factory=list)
+    history: list[str] = attrs.field(factory=list, init=False)
 
     @classmethod
     def from_file(cls, pathlike: os.PathLike):
@@ -79,6 +78,35 @@ class Ignore:
         with open(pathlike) as fobj:
             return cls([line.rstrip('\n') for line in fobj])
 
-    def match(self, relpath: str):
+    def match(self, relpath: str) -> bool:
         """Match a relative path against a collection of ignore patterns."""
-        return any(compile_pat(pattern).match(relpath) for pattern in self.patterns)
+        if any(compile_pat(pattern).match(relpath) for pattern in self.patterns):
+            self.history.append(relpath)
+            return True
+        return False
+
+    def __add__(self, other) -> Self:
+        return self.__class__(patterns=self.patterns + other.patterns)
+
+
+def filter_file_tree(filetree: FileTree) -> FileTree:
+    """Stub."""
+    bidsignore = filetree.children.get('.bidsignore')
+    if not bidsignore:
+        return filetree
+    ignore = Ignore.from_file(bidsignore) + Ignore(['/.bidsignore'])
+    return _filter(filetree, ignore)
+
+
+def _filter(filetree: FileTree, ignore: Ignore) -> FileTree:
+    items = filetree.children.items()
+    children = {
+        name: _filter(child, ignore)
+        for name, child in items
+        if not ignore.match(child.relative_path)
+    }
+
+    if any(children.get(name) is not child for name, child in items):
+        filetree = attrs.evolve(filetree, children=children)
+
+    return filetree

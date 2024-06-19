@@ -118,9 +118,9 @@ class FileTree:
         Directories include trailing slashes for simpler matching.
         """
         if self.parent is None:
-            return '/'
+            return ''
 
         return posixpath.join(
             self.parent.relative_path,
             f'{self.name}/' if self.is_dir else self.name,
-        )[1:]
+        )

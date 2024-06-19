@@ -3,6 +3,7 @@
 import os
 import posixpath
 import stat
+from functools import cached_property
 from pathlib import Path
 from typing import Dict, Self, Union
 
@@ -107,3 +108,19 @@ class FileTree:
 
     def __fspath__(self):
         return self.direntry.path
+
+    @cached_property
+    def relative_path(self) -> str:
+        """The path of the current FileTree, relative to the root.
+
+        Follows parents up to the root and joins with POSIX separators (/).
+
+        Directories include trailing slashes for simpler matching.
+        """
+        if self.parent is None:
+            return '/'
+
+        return posixpath.join(
+            self.parent.relative_path,
+            f'{self.name}/' if self.is_dir else self.name,
+        )[1:]

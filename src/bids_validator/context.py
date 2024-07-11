@@ -3,7 +3,7 @@
 from .context_generator import get_schema, load_schema_into_namespace
 
 schema = get_schema()
-load_schema_into_namespace(schema['meta']['context']['context'], globals(), 'Context')
+load_schema_into_namespace(schema['meta']['context'], globals(), 'Context')
 
 
 __all__ = [  # noqa: F822

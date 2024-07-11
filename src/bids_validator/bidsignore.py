@@ -94,7 +94,7 @@ class Ignore:
 class IgnoreMany:
     """Match against several ignore filters."""
 
-    ignores: List[Ignore] = attrs.field()
+    ignores: list[Ignore] = attrs.field()
 
     def match(self, relpath: str) -> bool:
         """Return true if any filters match the given file.

@@ -22,7 +22,9 @@ classifiers = [
 ]
 requires-python = ">=3.8"
 dependencies = [
-    "bidsschematools >=0.9",
+    "bidsschematools >=0.10",
+    "attrs",
+    "httpx",
 ]
 
 [project.optional-dependencies]

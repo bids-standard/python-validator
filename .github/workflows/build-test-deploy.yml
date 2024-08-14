@@ -1,7 +1,5 @@
 on:
   push:
-    branches: [main]
-    tags: ["*"]
   pull_request:
     branches: [main]
   release:
@@ -40,7 +38,8 @@ jobs:
           fetch-depth: 0
       - uses: hynek/build-and-inspect-python-package@v2
         with:
-          attest-build-provenance-github: 'true'
+          # Use attestation only if the action is triggered inside the repo
+          attest-build-provenance-github: ${{ github.event.action == 'published' || github.event_name == 'push' }}
 
   test:
     runs-on: ${{ matrix.os }}

@@ -9,14 +9,14 @@
 This is a library of helper functions written in Python,
 for use with BIDS compliant applications written in this language.
 
-The main function determines if a file extension is compliant with the BIDS specification.
+The main function determines if a file path is compliant with the BIDS specification.
 
 ## Installation
 
 To install with pip:
 
 ```
-pip install -U bids_validator
+python -m pip install bids_validator
 ```
 
 To install with conda:
@@ -55,7 +55,7 @@ Many contributions to the `bids-validator` were done by members of the
 BIDS community. See the
 [list of contributors](https://bids-specification.readthedocs.io/en/stable/99-appendices/01-contributors.html).
 
-A large part of the development of `bids-validator` is currently done by
+A large part of the initial development of `bids-validator` was done by
 [Squishymedia](https://squishymedia.com/), who are in turn financed through
 different grants offered for the general development of BIDS. See the list
 below.

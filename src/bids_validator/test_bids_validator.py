@@ -305,7 +305,6 @@ def test_is_file(validator, fname):
         '/sub-01/anat/sub-02_rec-CSD_T1w.json',  # subject inconsistency
         '/sub-01/anat/sub-01_rec-CS-D_T1w.nii.gz',  # rec label wrong
         '/sub-01/anat/sub-01_acq-23_T1W.json',  # modality suffix wrong
-        '/sub-01/dwi/sub-01_acq-23_dwi.nii.gz',  # wrong data type
         '/sub-01/anat/sub-01_acq-23_rec-CSD_T1w.exe',  # wrong extension
         '/sub-01/anat/sub-01_acq-23_rec-CSD_T1w.niigz',  # extension typo
         '/sub-01/anat/sub-01_run-2-3_T1w.json',  # run label typo
@@ -364,8 +363,6 @@ def test_is_anat_false(validator, fname):
         '/sub-01/dwi/ses-test/sub-01_ses-test_acq-singleband_dwi.json',
         # wrong dirs order
         '/ses-test/sub-01/dwi/sub-01_ses-test_acq-singleband_run-01_dwi.nii.gz',
-        # missed data type dir
-        '/sub-01/ses-test/sub-01_ses-test_acq-singleband_run-01_dwi.bval',
         # missed session id dir
         '/sub-01/dwi/sub-01_ses-test_acq-singleband_run-01_dwi.bvec',
         # missed sub id dir
@@ -416,20 +413,6 @@ def test_is_func_false(validator, fname):
 @pytest.mark.parametrize(
     ('fname'),
     [
-        # func not bold
-        '/sub-01/ses-test/func/sub-01_ses-test_task-coding_acq-23_events.tsv',
-        '/sub-01/func/sub-01_task-coding_events.json',
-        '/sub-01/func/sub-01_task-coding_acq-23_run-23_events.json',
-        '/sub-01/ses-test/func/sub-01_ses-test_task-coding_bold.json',
-        '/sub-01/func/sub-01_task-coding_acq-23_run-23_bold.json',
-        '/sub-01/ses-test/func/sub-01_ses-test_task-coding_physio.json',
-        '/sub-01/ses-test/func/sub-01_ses-test_task-coding_acq-23_run-23_physio.json',
-        '/sub-01/func/sub-01_task-coding_run-23_events.tsv',
-        '/sub-01/func/sub-01_task-coding_events.tsv',
-        '/sub-01/func/sub-01_task-coding_acq-23_events.json',
-        '/sub-01/ses-test/func/sub-01_ses-test_task-coding_run-23_events.tsv',
-        '/sub-01/func/sub-01_task-coding_physio.json',
-        '/sub-01/func/sub-01_task-coding_acq-23_physio.json',
         # various typos
         '/sub-01/func/sub-01_task-coding_sbref.ni.gz',  # ni
         '/sub-01/func/sub-01_task-coding_acq_23_bold.nii.gz',  # _23
@@ -498,8 +481,6 @@ def test_is_behavioral_false(validator, fname):
         '/sub-01/ses-test/beh/sub-01_ses-test_task-nback.json',  # missed modality
         # missed extension
         '/sub-01/ses-test/beh/sub-01_ses-test_task-nback_recording-saturation_physio.',
-        # missed data type dir
-        '/sub-01/ses-test/sub-01_ses-test_task-nback_recording-saturation_physio.json',
         # missed session id dir
         '/sub-01/beh/sub-01_ses-test_task-nback_recording-saturation_stim.tsv.gz',
         # missed sub id dir

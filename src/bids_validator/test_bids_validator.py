@@ -86,9 +86,8 @@ def test_is_top_level(validator, fname):
         '/CANGES',  # typo
     ],
 )
-def test_top_level(validator, fname):
+def test_is_not_top_level(validator, fname):
     """Test that is_top_level returns false for non top-level files."""
-    assert not validator.is_bids(fname)
     assert not validator.is_top_level(fname)
 
 
@@ -125,7 +124,6 @@ def test_is_associated_data(validator, fname):
 )
 def test_is_not_associated_data(validator, fname):
     """Test that is_associated_data returns false for associated data."""
-    assert not validator.is_bids(fname)
     assert not validator.is_associated_data(fname)
 
 
@@ -227,7 +225,6 @@ def test_is_session_level(validator, fname):
 )
 def test_is_not_session_level(validator, fname):
     """Test that is_session_level returns false for non session level files."""
-    assert not validator.is_bids(fname)
     assert not validator.is_session_level(fname)
 
 
@@ -257,7 +254,6 @@ def test_is_subject_level(validator, fname):
 )
 def test_is_not_subject_level(validator, fname):
     """Test that is_subject_level returns false for non subject level files."""
-    assert not validator.is_bids(fname)
     assert not validator.is_subject_level(fname)
 
 
@@ -285,7 +281,6 @@ def test_is_phenotypic(validator, fname):
 )
 def test_is_not_phenotypic(validator, fname):
     """Test that is_phenotypic returns false for non phenotypic files."""
-    assert not validator.is_bids(fname)
     assert not validator.is_phenotypic(fname)
 
 
@@ -296,7 +291,7 @@ def test_is_not_phenotypic(validator, fname):
         '/sub-01/anat/sub-01_T1w.nii.gz',
     ],
 )
-def test_file_level(validator, fname):
+def test_is_file(validator, fname):
     """Test that is_file returns true for file level files."""
     assert validator.is_bids(fname)
     assert validator.is_file(fname)

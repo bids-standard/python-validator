@@ -74,6 +74,7 @@ def test_datasets(validator, fname):
 )
 def test_is_top_level(validator, fname):
     """Test that is_top_level returns true for top-level files."""
+    assert validator.is_bids(fname)
     assert validator.is_top_level(fname)
 
 
@@ -87,6 +88,7 @@ def test_is_top_level(validator, fname):
 )
 def test_top_level(validator, fname):
     """Test that is_top_level returns false for non top-level files."""
+    assert not validator.is_bids(fname)
     assert not validator.is_top_level(fname)
 
 
@@ -106,6 +108,7 @@ def test_top_level(validator, fname):
 )
 def test_is_associated_data(validator, fname):
     """Test that is_associated_data returns true for associated data."""
+    assert validator.is_bids(fname)
     assert validator.is_associated_data(fname)
 
 
@@ -122,6 +125,7 @@ def test_is_associated_data(validator, fname):
 )
 def test_is_not_associated_data(validator, fname):
     """Test that is_associated_data returns false for associated data."""
+    assert not validator.is_bids(fname)
     assert not validator.is_associated_data(fname)
 
 
@@ -180,6 +184,7 @@ def test_is_not_associated_data(validator, fname):
 )
 def test_is_session_level(validator, fname):
     """Test that is_session_level returns true for session level files."""
+    assert validator.is_bids(fname)
     assert validator.is_session_level(fname)
 
 
@@ -222,6 +227,7 @@ def test_is_session_level(validator, fname):
 )
 def test_is_not_session_level(validator, fname):
     """Test that is_session_level returns false for non session level files."""
+    assert not validator.is_bids(fname)
     assert not validator.is_session_level(fname)
 
 
@@ -234,6 +240,7 @@ def test_is_not_session_level(validator, fname):
 )
 def test_is_subject_level(validator, fname):
     """Test that is_subject_level returns true for subject level files."""
+    assert validator.is_bids(fname)
     assert validator.is_subject_level(fname)
 
 
@@ -250,6 +257,7 @@ def test_is_subject_level(validator, fname):
 )
 def test_is_not_subject_level(validator, fname):
     """Test that is_subject_level returns false for non subject level files."""
+    assert not validator.is_bids(fname)
     assert not validator.is_subject_level(fname)
 
 
@@ -262,6 +270,7 @@ def test_is_not_subject_level(validator, fname):
 )
 def test_is_phenotypic(validator, fname):
     """Test that is_phenotypic returns true for phenotypic files."""
+    assert validator.is_bids(fname)
     assert validator.is_phenotypic(fname)
 
 
@@ -276,6 +285,7 @@ def test_is_phenotypic(validator, fname):
 )
 def test_is_not_phenotypic(validator, fname):
     """Test that is_phenotypic returns false for non phenotypic files."""
+    assert not validator.is_bids(fname)
     assert not validator.is_phenotypic(fname)
 
 
@@ -288,4 +298,5 @@ def test_is_not_phenotypic(validator, fname):
 )
 def test_file_level(validator, fname):
     """Test that is_file returns true for file level files."""
+    assert validator.is_bids(fname)
     assert validator.is_file(fname)

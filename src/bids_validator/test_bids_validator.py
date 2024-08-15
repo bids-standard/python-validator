@@ -112,7 +112,6 @@ def test_associated_data_true(validator, fname):
 @pytest.mark.parametrize(
     ('fname'),
     [
-        ('/stimuli/pic.jpg'),
         ('/sub-01/anat/sub-01_T1w.nii.gz'),
         ('/CODE/'),
         ('/derivatves/'),
@@ -203,8 +202,7 @@ def test_session_level_true(validator, fname):
         ('/sub-01/sub-01_acq-23-singleband_dwi.bvec'),  # redundant -23-
         ('/sub-01/anat/sub-01_acq-singleband_dwi.json'),  # redundant /anat/
         (
-            '/sub-01/sub-01_recrod-record_acq-singleband_run-01_dwi.bval',
-            False,
+            '/sub-01/sub-01_recrod-record_acq-singleband_run-01_dwi.bval'
         ),  # redundant record-record_
         ('/sub_01/sub-01_acq-singleband_run-01_dwi.bvec'),  # wrong /sub_01/
         ('/sub-01/sub-01_acq-singleband__run-01_dwi.json'),  # wrong __
@@ -216,8 +214,7 @@ def test_session_level_true(validator, fname):
         ('/sub-01/ses-test/sub-01_ses-test_acq-singleband_dwi'),  # missed extension
         ('/ses-test/sub-01/sub-01_ses-test_acq-singleband_dwi.json'),  # wrong dirs order
         (
-            '/sub-01/ses-test/sub-02_ses-test_acq-singleband_run-01_dwi.bval',
-            False,
+            '/sub-01/ses-test/sub-02_ses-test_acq-singleband_run-01_dwi.bval'
         ),  # wrong sub id in the filename
         ('/sub-01/sub-01_ses-test_acq-singleband_run-01_dwi.bvec'),  # ses dir missed
         ('/ses-test/sub-01_ses-test_acq-singleband_run-01_dwi.json'),  # sub id dir missed
@@ -261,13 +258,9 @@ def test_subject_level_false(validator, fname):
     [
         ('/phenotype/measure.tsv'),
         ('/phenotype/measure.json'),
-        ('/sub-01/anat/sub-01_T1w.nii.gz'),
-        ('/measurement_tool_name.tsv'),  # missed phenotype dir
-        ('/phentype/measurement_tool_name.josn'),  # wrong phenotype dir
-        ('/phenotype/measurement_tool_name.jsn'),  # wrong extension
     ],
 )
-def test_phenotpic_true(validator, fname):
+def test_phenotypic_true(validator, fname):
     """Test that is_phenotypic returns true for phenotypic files."""
     assert validator.is_phenotypic(fname) is True
 
@@ -281,7 +274,7 @@ def test_phenotpic_true(validator, fname):
         ('/phenotype/measurement_tool_name.jsn'),  # wrong extension
     ],
 )
-def test_phenotpic_false(validator, fname):
+def test_phenotypic_false(validator, fname):
     """Test that is_phenotypic returns false for non phenotypic files."""
     assert validator.is_phenotypic(fname) is False
 

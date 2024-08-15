@@ -5,9 +5,10 @@ import posixpath
 import stat
 from functools import cached_property
 from pathlib import Path
-from typing import Dict, Self, Union
+from typing import Dict, Union
 
 import attrs
+from typing_extensions import Self  # PY310
 
 __all__ = ('FileTree',)
 

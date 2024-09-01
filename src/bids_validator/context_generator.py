@@ -86,6 +86,13 @@ def typespec_to_type(name: str, typespec: dict[str, Any]):
     return type_, metadata
 
 
+def _type_name(tp: type) -> str:
+    try:
+        return tp.__name__
+    except AttributeError:
+        return str(tp)
+
+
 def create_attrs_class(
     class_name: str,
     properties: dict[str, Any],
@@ -128,7 +135,12 @@ attrs data class auto-generated from BIDS schema
 Attributes
 ----------
 """
-            + '\n'.join([f'{k}: {v.type.__name__}' for k, v in attributes.items()]),
+            + '\n'.join(
+                [
+                    f'{k}: {_type_name(v.type)}\n\t{v.metadata["description"]}'
+                    for k, v in attributes.items()
+                ]
+            ),
         },
     )
 

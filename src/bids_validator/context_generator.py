@@ -78,10 +78,8 @@ def typespec_to_type(name: str, typespec: dict[str, Any]):
     else:
         type_ = {
             'number': float,
-            'float': float,  # Fix in schema
             'string': str,
             'integer': int,
-            'int': int,  # Fix in schema
         }[tp]
     return type_, metadata
 

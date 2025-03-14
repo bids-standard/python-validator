@@ -1,0 +1,3 @@
+[submodule "tests/data/bids-examples"]
+	path = tests/data/bids-examples
+	url = https://github.com/bids-standard/bids-examples

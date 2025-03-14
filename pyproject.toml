@@ -54,6 +54,9 @@ versionfile_build = "bids_validator/_version.py"
 tag_prefix = ""
 parentdir_prefix = ""
 
+[tool.pytest.ini_options]
+norecursedirs = ["data"]
+
 [tool.coverage.run]
 branch = true
 parallel = true

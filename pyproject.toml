@@ -20,17 +20,17 @@ classifiers = [
     "Programming Language :: Python",
     "Topic :: Scientific/Engineering",
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 dependencies = [
-    "bidsschematools >=0.11",
+    "bidsschematools >=1.0",
 ]
 
 [project.optional-dependencies]
 test = [
-  "pytest",
-  "pytest-cov",
-  "coverage[toml]",
-  "datalad",
+  "pytest >=8",
+  "pytest-cov >=5",
+  "coverage[toml] >=7.2",
+  "datalad >=1.1",
 ]
 
 [project.urls]
@@ -64,6 +64,7 @@ branch = true
 parallel = true
 source = ["bids_validator", "tests"]
 omit = [
+  "setup.py",
   "*/_version.py",
 ]
 

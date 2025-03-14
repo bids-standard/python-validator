@@ -1,16 +1,56 @@
+import typer
 
 from bids_validator import BIDSValidator
-import typer
+from bids_validator.types.files import FileTree
 
 validator = BIDSValidator()
 
 app = typer.Typer()
 
+
+def check_children(tree: FileTree):
+    """Iterate over children of a FileTree and check if they are a directory or file.
+
+    If it's a directory then run again recursively, if it's a file file check the file name is
+    BIDS compliant.
+
+    Parameters
+    ----------
+    tree : FileTree
+        FileTree object to iterate over
+
+    """
+    for child in tree.children.values():
+        if child.is_dir:
+            check_children(child)
+        else:
+            check_bids(child.relative_path)
+
+
+def check_bids(path: str):
+    """Check if the file path is BIDS compliant.
+
+    Parameters
+    ----------
+    path : str
+        Path to check of compliance
+
+    """
+    # The output of the FileTree.relative_path method always drops the initial for the path which
+    # makes it fail the validator.is_bids check. Not sure if it's a Windows specific thing.
+    # This line adds it back.
+    path = f'/{path}'
+
+    if not validator.is_bids(path):
+        print(f'{path} is not a valid bids filename')
+
+
 @app.command()
 def main(bids_path: str):
+    root_path = FileTree.read_from_filesystem(bids_path)
 
-    if not validator.is_bids(bids_path):
-        print(f"{bids_path} is not a valid bids filename")
+    check_children(root_path)
+
 
 if __name__ == '__main__':
     app()

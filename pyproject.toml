@@ -54,11 +54,21 @@ versionfile_build = "bids_validator/_version.py"
 tag_prefix = ""
 parentdir_prefix = ""
 
+[tool.pytest.ini_options]
+doctest_optionflags = ["NORMALIZE_WHITESPACE", "IGNORE_EXCEPTION_DETAIL"]
+
 [tool.coverage.run]
 branch = true
 parallel = true
+source = ["bids_validator"]
 omit = [
   "*/_version.py",
+]
+
+[tool.coverage.paths]
+source = [
+  "src/bids_validator/",
+  "*/site-packages/bids_validator/",
 ]
 
 [tool.coverage.report]

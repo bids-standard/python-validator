@@ -12,7 +12,7 @@ def examples() -> Path:
     """Get bids-examples from submodule, allow environment variable override."""
     ret = os.getenv('BIDS_EXAMPLES')
     if not ret:
-        ret = importlib.resources.files(__package__) / 'data' / 'bids-examples'
-        if not ret.exists():
-            pytest.skip('Missing examples')
+        ret = importlib.resources.files() / 'data' / 'bids-examples'
+        if not any(ret.iterdir()):
+            pytest.skip('bids-examples submodule is not checked out')
     return Path(ret)

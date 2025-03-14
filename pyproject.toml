@@ -62,8 +62,15 @@ doctest_optionflags = ["NORMALIZE_WHITESPACE", "IGNORE_EXCEPTION_DETAIL"]
 [tool.coverage.run]
 branch = true
 parallel = true
+source = ["bids_validator", "tests"]
 omit = [
   "*/_version.py",
+]
+
+[tool.coverage.paths]
+source = [
+  "src/bids_validator/",
+  "*/site-packages/bids_validator/",
 ]
 
 [tool.coverage.report]
@@ -71,6 +78,7 @@ exclude_lines = [
   "no cov",
   "if __name__ == .__main__.:",
   "if TYPE_CHECKING:",
+  "pytest.skip",
 ]
 
 # Disable black

@@ -62,6 +62,7 @@ branch = true
 parallel = true
 source = ["bids_validator"]
 omit = [
+  "setup.py",
   "*/_version.py",
 ]
 

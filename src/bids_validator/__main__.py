@@ -7,12 +7,10 @@ except ImportError:
 from bids_validator import BIDSValidator
 from bids_validator.types.files import FileTree
 
-validator = BIDSValidator()
-
 app = typer.Typer()
 
 
-def check_children(tree: FileTree):
+def walk(tree: FileTree):
     """Iterate over children of a FileTree and check if they are a directory or file.
 
     If it's a directory then run again recursively, if it's a file file check the file name is
@@ -26,34 +24,36 @@ def check_children(tree: FileTree):
     """
     for child in tree.children.values():
         if child.is_dir:
-            check_children(child)
+            yield from walk(child)
         else:
-            check_bids(child.relative_path)
+            yield child
 
-
-def check_bids(path: str):
+def validate(tree: FileTree):
     """Check if the file path is BIDS compliant.
 
     Parameters
     ----------
-    path : str
-        Path to check of compliance
+    tree : FileTree
+        Full FileTree object to iterate over and check
 
     """
-    # The output of the FileTree.relative_path method always drops the initial for the path which
-    # makes it fail the validator.is_bids check. Not sure if it's a Windows specific thing.
-    # This line adds it back.
-    path = f'/{path}'
+    validator = BIDSValidator()
 
-    if not validator.is_bids(path):
-        print(f'{path} is not a valid bids filename')
+    for file in walk(tree):
+        # The output of the FileTree.relative_path method always drops the initial for the path which
+        # makes it fail the validator.is_bids check. Not sure if it's a Windows specific thing.
+        # This line adds it back.
+        path = f'/{file.relative_path}'
+
+        if not validator.is_bids(path):
+            print(f'{path} is not a valid bids filename')
 
 
 @app.command()
 def main(bids_path: str):
     root_path = FileTree.read_from_filesystem(bids_path)
 
-    check_children(root_path)
+    validate(root_path)
 
 
 if __name__ == '__main__':

@@ -32,6 +32,9 @@ test = [
   "coverage[toml] >=7.2",
   "datalad >=1.1",
 ]
+cli = [
+  "typer >=0.15",
+]
 
 [project.urls]
 Homepage = "https://github.com/bids-standard/python-validator"

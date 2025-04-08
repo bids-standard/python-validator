@@ -1,4 +1,8 @@
-import typer
+try:
+    import typer
+except ImportError:
+    print('⚠️ CLI dependencies are not installed. Install "bids_validator[cli]"')
+    raise SystemExit(1) from None
 
 from bids_validator import BIDSValidator
 from bids_validator.types.files import FileTree

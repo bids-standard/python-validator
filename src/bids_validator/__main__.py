@@ -58,6 +58,23 @@ def show_version():
     """
     print(f'bids-validator {__version__} (Python {sys.version.split()[0]})')
 
+def version_callback(value: bool):
+    """Callback for CLI version flag
+
+    Parameters
+    ----------
+    value : bool
+        value received from --version flag
+
+    Raises
+    ------
+    typer.Exit
+        Exit without any errors
+    """
+    if value:
+        show_version()
+        raise typer.Exit()
+
 @app.command()
 def main(
     bids_path: str,
@@ -65,6 +82,12 @@ def main(
         "--verbose", "-v",
         help="Show verbose output"
     )] = False,
+    version: Annotated[bool, typer.Option(
+        "--version",
+        help="Show version",
+        callback=version_callback,
+        is_eager=True,
+    )] = False
 ) -> None:
     
     if verbose: show_version()

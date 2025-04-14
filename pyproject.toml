@@ -32,9 +32,16 @@ test = [
   "coverage[toml] >=7.2",
   "datalad >=1.1",
 ]
+cli = [
+  "typer >=0.15",
+]
 
 [project.urls]
 Homepage = "https://github.com/bids-standard/python-validator"
+
+[project.scripts]
+bids-validator = "bids_validator.__main__:app"
+bids-validator-python = "bids_validator.__main__:app"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
@@ -55,12 +62,14 @@ tag_prefix = ""
 parentdir_prefix = ""
 
 [tool.pytest.ini_options]
+norecursedirs = ["data"]
 doctest_optionflags = ["NORMALIZE_WHITESPACE", "IGNORE_EXCEPTION_DETAIL"]
+
 
 [tool.coverage.run]
 branch = true
 parallel = true
-source = ["bids_validator"]
+source = ["bids_validator", "tests"]
 omit = [
   "setup.py",
   "*/_version.py",
@@ -77,6 +86,7 @@ exclude_lines = [
   "no cov",
   "if __name__ == .__main__.:",
   "if TYPE_CHECKING:",
+  "pytest.skip",
 ]
 
 # Disable black

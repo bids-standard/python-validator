@@ -11,7 +11,6 @@ import importlib.metadata
 from bids_validator import BIDSValidator
 from bids_validator.types.files import FileTree
 
-__version__ = importlib.metadata.version(__package__ or __name__)
 app = typer.Typer()
 
 
@@ -56,6 +55,7 @@ def validate(tree: FileTree):
 def show_version():
     """Show bids-validator version
     """
+    from . import __version__
     print(f'bids-validator {__version__} (Python {sys.version.split()[0]})')
 
 def version_callback(value: bool):

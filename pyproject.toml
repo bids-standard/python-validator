@@ -23,6 +23,9 @@ classifiers = [
 requires-python = ">=3.9"
 dependencies = [
     "bidsschematools >=1.0",
+    "typing_extensions",
+    "attrs",
+    "httpx",
 ]
 
 [project.optional-dependencies]
@@ -55,12 +58,14 @@ tag_prefix = ""
 parentdir_prefix = ""
 
 [tool.pytest.ini_options]
+norecursedirs = ["data"]
 doctest_optionflags = ["NORMALIZE_WHITESPACE", "IGNORE_EXCEPTION_DETAIL"]
+
 
 [tool.coverage.run]
 branch = true
 parallel = true
-source = ["bids_validator"]
+source = ["bids_validator", "tests"]
 omit = [
   "setup.py",
   "*/_version.py",
@@ -77,6 +82,7 @@ exclude_lines = [
   "no cov",
   "if __name__ == .__main__.:",
   "if TYPE_CHECKING:",
+  "pytest.skip",
 ]
 
 # Disable black

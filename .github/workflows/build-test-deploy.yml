@@ -36,6 +36,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          submodules: true
       - uses: hynek/build-and-inspect-python-package@v2
         with:
           # Use attestation only if the action is triggered inside the repo
@@ -65,6 +66,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
+
       - name: Set git name/email
         run: |
           git config --global user.email "bids.maintenance@gmail.com"

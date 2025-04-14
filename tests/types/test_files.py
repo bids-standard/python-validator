@@ -1,4 +1,7 @@
+# ruff: noqa: D100
+
 import attrs
+
 from bids_validator.types.files import FileTree
 
 

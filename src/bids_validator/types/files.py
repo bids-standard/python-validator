@@ -5,7 +5,7 @@ import posixpath
 import stat
 from functools import cached_property
 from pathlib import Path
-from typing import Dict, Union
+from typing import Union
 
 import attrs
 from typing_extensions import Self  # PY310
@@ -72,7 +72,7 @@ class FileTree:
     direntry: Union[os.DirEntry, UserDirEntry] = attrs.field(repr=False, converter=as_direntry)
     parent: Union['FileTree', None] = attrs.field(repr=False, default=None)
     is_dir: bool = attrs.field(default=False)
-    children: Dict[str, 'FileTree'] = attrs.field(repr=False, factory=dict)
+    children: dict[str, 'FileTree'] = attrs.field(repr=False, factory=dict)
     name: str = attrs.field(init=False)
 
     def __attrs_post_init__(self):

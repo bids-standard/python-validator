@@ -1,3 +1,6 @@
+# ruff: noqa: D100
+# ruff: noqa: D103
+
 try:
     import typer
 except ImportError:
@@ -5,8 +8,7 @@ except ImportError:
     raise SystemExit(1) from None
 
 import sys
-from typing_extensions import Annotated
-import importlib.metadata
+from typing import Annotated
 
 from bids_validator import BIDSValidator
 from bids_validator.types.files import FileTree
@@ -32,6 +34,7 @@ def walk(tree: FileTree):
         else:
             yield child
 
+
 def validate(tree: FileTree):
     """Check if the file path is BIDS compliant.
 
@@ -44,22 +47,24 @@ def validate(tree: FileTree):
     validator = BIDSValidator()
 
     for file in walk(tree):
-        # The output of the FileTree.relative_path method always drops the initial for the path which
-        # makes it fail the validator.is_bids check. Not sure if it's a Windows specific thing.
+        # The output of the FileTree.relative_path method always drops the initial for the path
+        # which makes it fail the validator.is_bids check. THis may be a Windows specific thing.
         # This line adds it back.
         path = f'/{file.relative_path}'
 
         if not validator.is_bids(path):
             print(f'{path} is not a valid bids filename')
 
+
 def show_version():
-    """Show bids-validator version
-    """
+    """Show bids-validator version."""
     from . import __version__
+
     print(f'bids-validator {__version__} (Python {sys.version.split()[0]})')
 
+
 def version_callback(value: bool):
-    """Callback for CLI version flag
+    """Run the callback for CLI version flag.
 
     Parameters
     ----------
@@ -70,27 +75,29 @@ def version_callback(value: bool):
     ------
     typer.Exit
         Exit without any errors
+
     """
     if value:
         show_version()
         raise typer.Exit()
 
+
 @app.command()
 def main(
     bids_path: str,
-    verbose: Annotated[bool, typer.Option(
-        "--verbose", "-v",
-        help="Show verbose output"
-    )] = False,
-    version: Annotated[bool, typer.Option(
-        "--version",
-        help="Show version",
-        callback=version_callback,
-        is_eager=True,
-    )] = False
+    verbose: Annotated[bool, typer.Option('--verbose', '-v', help='Show verbose output')] = False,
+    version: Annotated[
+        bool,
+        typer.Option(
+            '--version',
+            help='Show version',
+            callback=version_callback,
+            is_eager=True,
+        ),
+    ] = False,
 ) -> None:
-    
-    if verbose: show_version()
+    if verbose:
+        show_version()
 
     root_path = FileTree.read_from_filesystem(bids_path)
 

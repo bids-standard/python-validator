@@ -15,6 +15,8 @@ def examples() -> Path:
         ret = importlib.resources.files(__spec__.parent) / 'data' / 'bids-examples'
         if not any(ret.iterdir()):
             pytest.skip('bids-examples submodule is not checked out')
+    else:  # pragma: no cover
+        pass
     return Path(ret)
 
 
@@ -26,4 +28,6 @@ def gitignore_test() -> Path:
         ret = importlib.resources.files(__spec__.parent) / 'data' / 'gitignore-test'
         if not any(ret.iterdir()):
             pytest.skip('gitignore-test submodule is not checked out')
+    else:  # pragma: no cover
+        pass
     return Path(ret)

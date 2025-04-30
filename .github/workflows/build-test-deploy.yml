@@ -79,7 +79,6 @@ jobs:
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
-        if: matrix.os != 'ubuntu-latest'
         with:
           python-version: ${{ matrix.python-version }}
           allow-prereleases: true

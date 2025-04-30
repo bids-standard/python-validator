@@ -1,3 +1,6 @@
 [submodule "tests/data/bids-examples"]
 	path = tests/data/bids-examples
 	url = https://github.com/bids-standard/bids-examples
+[submodule "tests/data/gitignore-test"]
+	path = tests/data/gitignore-test
+	url = https://github.com/svent/gitignore-test

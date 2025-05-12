@@ -13,18 +13,21 @@ Basic usage:
     load_schema_into_namespace(schema['meta']['context'], globals(), 'Context')
 """
 
+from __future__ import annotations
+
 import json
-from typing import Any, Union
 
 import attrs
 import bidsschematools as bst
 import bidsschematools.schema
 
+from . import _typings as t
+
 LATEST_SCHEMA_URL = 'https://bids-specification.readthedocs.io/en/latest/schema.json'
 STABLE_SCHEMA_URL = 'https://bids-specification.readthedocs.io/en/stable/schema.json'
 
 
-def get_schema(url: Union[str, None] = None) -> bst.types.Namespace:
+def get_schema(url: str | None = None) -> bst.types.Namespace:
     """Load a BIDS schema from a URL or return the bundled schema if no URL is provided.
 
     This function utilizes the ``universal_pathlib`` package to handle various URL schemes.
@@ -75,7 +78,7 @@ def snake_to_pascal(val: str) -> str:
     return ''.join(sub.capitalize() for sub in val.split('_'))
 
 
-def typespec_to_type(name: str, typespec: dict[str, Any]) -> tuple[type, dict[str, Any]]:
+def typespec_to_type(name: str, typespec: dict[str, t.Any]) -> tuple[type, dict[str, t.Any]]:
     """Convert JSON-schema style specification to type and metadata dictionary."""
     tp = typespec.get('type')
     if not tp:
@@ -86,12 +89,12 @@ def typespec_to_type(name: str, typespec: dict[str, Any]) -> tuple[type, dict[st
         if properties:
             type_ = create_attrs_class(name, properties=properties, metadata=metadata)
         else:
-            type_ = dict[str, Any]
+            type_ = dict[str, t.Any]
     elif tp == 'array':
         if 'items' in typespec:
             subtype, md = typespec_to_type(name, typespec['items'])
         else:
-            subtype = Any
+            subtype = t.Any
         type_ = list[subtype]
     else:
         type_ = {
@@ -111,8 +114,8 @@ def _type_name(tp: type) -> str:
 
 def create_attrs_class(
     class_name: str,
-    properties: dict[str, Any],
-    metadata: dict[str, Any],
+    properties: dict[str, t.Any],
+    metadata: dict[str, t.Any],
 ) -> type:
     """Dynamically create an attrs class with the given properties.
 
@@ -160,7 +163,7 @@ Attributes
 
 
 def generate_attrs_classes_from_schema(
-    schema: dict[str, Any],
+    schema: dict[str, t.Any],
     root_class_name: str,
 ) -> type:
     """Generate attrs classes from a JSON schema.
@@ -185,7 +188,7 @@ def generate_attrs_classes_from_schema(
     return type_
 
 
-def populate_namespace(attrs_class: type, namespace: dict[str, Any]) -> None:
+def populate_namespace(attrs_class: type, namespace: dict[str, t.Any]) -> None:
     """Populate a namespace with nested attrs classes.
 
     Parameters
@@ -205,8 +208,8 @@ def populate_namespace(attrs_class: type, namespace: dict[str, Any]) -> None:
 
 
 def load_schema_into_namespace(
-    schema: dict[str, Any],
-    namespace: dict[str, Any],
+    schema: dict[str, t.Any],
+    namespace: dict[str, t.Any],
     root_class_name: str,
 ) -> None:
     """Load a JSON schema into a namespace as attrs classes.

@@ -99,7 +99,10 @@ exclude = ".*"
 
 [tool.ruff]
 line-length = 99
-extend-exclude = ["_version.py"]
+extend-exclude = [
+  "_version.py",
+  "tests/data",
+]
 
 [tool.ruff.lint]
 extend-select = [

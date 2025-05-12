@@ -1,14 +1,16 @@
 """Types for working with file trees."""
 
+from __future__ import annotations
+
 import os
 import posixpath
 import stat
 from functools import cached_property
 from pathlib import Path
-from typing import Union
 
 import attrs
-from typing_extensions import Self  # PY310
+
+from . import _typings as t
 
 __all__ = ('FileTree',)
 
@@ -58,7 +60,7 @@ class UserDirEntry:
         return stat.S_ISLNK(_stat.st_mode)
 
 
-def as_direntry(obj: os.PathLike) -> Union[os.DirEntry, UserDirEntry]:
+def as_direntry(obj: os.PathLike) -> os.DirEntry | UserDirEntry:
     """Convert PathLike into DirEntry-like object."""
     if isinstance(obj, os.DirEntry):
         return obj
@@ -69,10 +71,10 @@ def as_direntry(obj: os.PathLike) -> Union[os.DirEntry, UserDirEntry]:
 class FileTree:
     """Represent a FileTree with cached metadata."""
 
-    direntry: Union[os.DirEntry, UserDirEntry] = attrs.field(repr=False, converter=as_direntry)
-    parent: Union['FileTree', None] = attrs.field(repr=False, default=None)
+    direntry: os.DirEntry | UserDirEntry = attrs.field(repr=False, converter=as_direntry)
+    parent: FileTree | None = attrs.field(repr=False, default=None)
     is_dir: bool = attrs.field(default=False)
-    children: dict[str, 'FileTree'] = attrs.field(repr=False, factory=dict)
+    children: dict[str, FileTree] = attrs.field(repr=False, factory=dict)
     name: str = attrs.field(init=False)
 
     def __attrs_post_init__(self):
@@ -85,8 +87,8 @@ class FileTree:
     def read_from_filesystem(
         cls,
         direntry: os.PathLike,
-        parent: Union['FileTree', None] = None,
-    ) -> Self:
+        parent: FileTree | None = None,
+    ) -> t.Self:
         """Read a FileTree from the filesystem.
 
         Uses :func:`os.scandir` to walk the directory tree.

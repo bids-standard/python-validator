@@ -24,6 +24,7 @@ requires-python = ">=3.9"
 dependencies = [
     "attrs >=24.1",
     "bidsschematools >=1.0",
+    "universal_pathlib >=0.2.6",
 ]
 
 [project.optional-dependencies]

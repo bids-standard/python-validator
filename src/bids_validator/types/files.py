@@ -112,6 +112,9 @@ class FileTree:
     def __fspath__(self):
         return self.direntry.path
 
+    def __hash__(self):
+        return hash(self.direntry.path)
+
     @cached_property
     def relative_path(self) -> str:
         """The path of the current FileTree, relative to the root.

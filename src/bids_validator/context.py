@@ -253,7 +253,7 @@ class FileParts:
 
         datatype = None
         if file.parent:
-            if any(file.parent.name == dtype.value for dtype in schema.objects.datatypes):
+            if any(file.parent.name == dtype.value for dtype in schema.objects.datatypes.values()):
                 datatype = file.parent.name
 
         *entity_strings, suffix = stem.split('_')
@@ -263,7 +263,7 @@ class FileParts:
         }
 
         return cls(
-            path=file.relative_path,
+            path=f'/{file.relative_path}',
             stem=stem,
             entities=entities,
             datatype=datatype,

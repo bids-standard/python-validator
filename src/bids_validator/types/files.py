@@ -115,6 +115,13 @@ class FileTree:
     def __hash__(self):
         return hash(self.direntry.path)
 
+    def __truediv__(self, relpath: str | os.PathLike) -> t.Self:
+        parts = Path(relpath).parts
+        child = self
+        for part in parts:
+            child = child.children[part]
+        return child
+
     @cached_property
     def relative_path(self) -> str:
         """The path of the current FileTree, relative to the root.

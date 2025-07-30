@@ -23,7 +23,7 @@ classifiers = [
 requires-python = ">=3.9"
 dependencies = [
     "attrs >=24.1",
-    "bidsschematools >= 1.0.10",
+    "bidsschematools @ git+https://github.com/bids-standard/bids-specification.git@refs/pull/2133/head#subdirectory=tools/schemacode",
 ]
 
 [project.optional-dependencies]

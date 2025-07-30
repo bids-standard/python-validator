@@ -83,20 +83,8 @@ jobs:
           python-version: ${{ matrix.python-version }}
           allow-prereleases: true
 
-      - name: Install git-annex ubuntu
-        if: matrix.os == 'ubuntu-latest'
-        run: sudo apt-get update && sudo apt-get install git-annex
-
-      - name: Install git-annex macos
-        if: matrix.os == 'macos-latest'
-        run: brew install git-annex
-
-      - name: Install git-annex windows
-        if: matrix.os == 'windows-latest'
-        uses: crazy-max/ghaction-chocolatey@v3
-        with:
-          args: install git-annex --yes --ignore-checksums
-        continue-on-error: true  # This can fail for stupid reasons ¯\_(ツ)_/¯
+      - name: Install git-annex
+        run: uv tool install git-annex
 
       - name: Show software versions
         run: |

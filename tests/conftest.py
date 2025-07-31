@@ -5,6 +5,8 @@ import os
 from pathlib import Path
 
 import pytest
+from bidsschematools.schema import load_schema
+from bidsschematools.types import Namespace
 
 
 @pytest.fixture(scope='session')
@@ -31,3 +33,9 @@ def gitignore_test() -> Path:
     else:  # pragma: no cover
         pass
     return Path(ret)
+
+
+@pytest.fixture(scope='session')
+def schema() -> Namespace:
+    """Load BIDS schema for tests."""
+    return load_schema()

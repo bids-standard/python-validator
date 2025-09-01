@@ -113,6 +113,7 @@ class Dataset:
     """A dataset object that loads properties on first access."""
 
     tree: FileTree
+    schema: Namespace
     ignored: list[str] = attrs.field(factory=list)
     subjects: Subjects = attrs.field(init=False)
 

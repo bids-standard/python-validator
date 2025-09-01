@@ -2,9 +2,9 @@ from bids_validator import context
 from bids_validator.types.files import FileTree
 
 
-def test_load(examples):
+def test_load(examples, schema):
     tree = FileTree.read_from_filesystem(examples / 'synthetic')
-    ds = context.Dataset(tree)
+    ds = context.Dataset(tree, schema)
 
     assert ds.dataset_description.Name.startswith('Synthetic dataset')
     assert ds.subjects.participant_id == [f'sub-{i:02d}' for i in range(1, 6)]

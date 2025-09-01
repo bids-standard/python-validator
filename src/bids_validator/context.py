@@ -137,25 +137,21 @@ class Dataset:
             for mod_name, mod_dtypes in modalities.items():
                 if datatype in mod_dtypes.datatypes:
                     result.add(mod_name)
-            
+
         return list(result)
 
     @cached_property
     def datatypes(self) -> list[str]:
         """List of datatypes found in the dataset."""
-        
         datatypes = self.schema.objects.datatypes
         result = self.find_datatypes(self.tree, datatypes)
 
         return list(result)
-    
+
     def find_datatypes(
-            self,
-            tree: FileTree,
-            datatypes: Namespace,
-            result: set[str] | None = None
-        ) -> set[str|None]:
-        """ Recursively work through tree to find datatypes """
+        self, tree: FileTree, datatypes: Namespace, result: set[str] | None = None
+    ) -> set[str | None]:
+        """Recursively work through tree to find datatypes."""
         if result is None:
             result = set()
 
@@ -167,7 +163,7 @@ class Dataset:
                 result.add(child_name)
             else:
                 result = self.find_datatypes(child_obj, datatypes, result)
-        
+
         return result
 
 

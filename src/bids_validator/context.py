@@ -136,8 +136,27 @@ class Dataset:
     @cached_property
     def datatypes(self) -> list[str]:
         """List of datatypes found in the dataset."""
-        ...
-        return []
+    
+    def find_datatypes(
+            self,
+            tree: FileTree,
+            datatypes: Namespace,
+            result: set[str] | None = None
+        ) -> set[str|None]:
+        """ Recursively work through tree to find datatypes """
+        if result is None:
+            result = set()
+
+        for child_name, child_obj in tree.children.items():
+            if not child_obj.is_dir:
+                continue
+
+            if child_name in datatypes.keys():
+                result.add(child_name)
+            else:
+                result = self.find_datatypes(child_obj, datatypes, result)
+        
+        return result
 
 
 @attrs.define

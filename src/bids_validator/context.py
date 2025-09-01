@@ -130,8 +130,15 @@ class Dataset:
     @cached_property
     def modalities(self) -> list[str]:
         """List of modalities found in the dataset."""
-        ...
-        return []
+        result = set()
+
+        modalities = self.schema.rules.modalities
+        for datatype in self.datatypes:
+            for mod_name, mod_dtypes in modalities.items():
+                if datatype in mod_dtypes.datatypes:
+                    result.add(mod_name)
+            
+        return list(result)
 
     @cached_property
     def datatypes(self) -> list[str]:

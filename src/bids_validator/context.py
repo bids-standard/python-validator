@@ -144,27 +144,30 @@ class Dataset:
     def datatypes(self) -> list[str]:
         """List of datatypes found in the dataset."""
         datatypes = self.schema.objects.datatypes
-        result = self.find_datatypes(self.tree, datatypes)
+        result = find_datatypes(self.tree, datatypes)
 
         return list(result)
 
-    def find_datatypes(
-        self, tree: FileTree, datatypes: Namespace, result: set[str] | None = None
-    ) -> set[str | None]:
-        """Recursively work through tree to find datatypes."""
-        if result is None:
-            result = set()
 
-        for child_name, child_obj in tree.children.items():
-            if not child_obj.is_dir:
-                continue
+def find_datatypes(
+    tree: FileTree, datatypes: Namespace, result: set[str] | None = None, max_depth: int = 2
+) -> set[str]:
+    """Recursively work through tree to find datatypes."""
+    if result is None:
+        result = set()
 
-            if child_name in datatypes.keys():
-                result.add(child_name)
-            else:
-                result = self.find_datatypes(child_obj, datatypes, result)
+    for child_name, child_obj in tree.children.items():
+        if not child_obj.is_dir:
+            continue
 
-        return result
+        if child_name in datatypes.keys():
+            result.add(child_name)
+        elif max_depth == 0:
+            continue
+        else:
+            result = find_datatypes(child_obj, datatypes, result, max_depth=max_depth - 1)
+
+    return result
 
 
 @attrs.define

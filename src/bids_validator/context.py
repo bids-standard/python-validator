@@ -113,6 +113,7 @@ class Dataset:
     """A dataset object that loads properties on first access."""
 
     tree: FileTree
+    schema: Namespace
     ignored: list[str] = attrs.field(factory=list)
     subjects: Subjects = attrs.field(init=False)
 
@@ -129,14 +130,41 @@ class Dataset:
     @cached_property
     def modalities(self) -> list[str]:
         """List of modalities found in the dataset."""
-        ...
-        return []
+        result = set()
+
+        modalities = self.schema.rules.modalities
+        for datatype in self.datatypes:
+            for mod_name, mod_dtypes in modalities.items():
+                if datatype in mod_dtypes.datatypes:
+                    result.add(mod_name)
+
+        return list(result)
 
     @cached_property
     def datatypes(self) -> list[str]:
         """List of datatypes found in the dataset."""
-        ...
-        return []
+        return list(find_datatypes(self.tree, self.schema.objects.datatypes))
+
+
+def find_datatypes(
+    tree: FileTree, datatypes: Namespace, result: set[str] | None = None, max_depth: int = 2
+) -> set[str]:
+    """Recursively work through tree to find datatypes."""
+    if result is None:
+        result = set()
+
+    for child_name, child_obj in tree.children.items():
+        if not child_obj.is_dir:
+            continue
+
+        if child_name in datatypes.keys():
+            result.add(child_name)
+        elif max_depth == 0:
+            continue
+        else:
+            result = find_datatypes(child_obj, datatypes, result, max_depth=max_depth - 1)
+
+    return result
 
 
 @attrs.define

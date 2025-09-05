@@ -143,10 +143,7 @@ class Dataset:
     @cached_property
     def datatypes(self) -> list[str]:
         """List of datatypes found in the dataset."""
-        datatypes = self.schema.objects.datatypes
-        result = find_datatypes(self.tree, datatypes)
-
-        return list(result)
+        return list(find_datatypes(self.tree, self.schema.objects.datatypes))
 
 
 def find_datatypes(

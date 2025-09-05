@@ -298,3 +298,78 @@ class FileParts:
             suffix=suffix,
             extension=extension,
         )
+
+@attrs.define
+class Context:
+
+    file: FileTree
+    dataset: Dataset
+    schema: Namespace = attrs.field(init=False)
+    file_parts: FileParts = attrs.field(init=False)
+
+    def __attrs_post_init__(self):
+        self.schema = self.dataset.schema
+        self.file_parts = FileParts.from_file(self.file, self.schema)
+    
+    @property
+    def path(self) -> str:
+        return self.file_parts.path
+    
+    @property
+    def entiities(self) -> dict[str, str] | None:
+        return self.file_parts.entities
+    
+    @property
+    def datatype(self) -> str | None:
+        return self.file_parts.datatype
+
+    @property
+    def suffix(self) -> str | None:
+        return self.file_parts.suffix
+
+    @property
+    def extension(self) -> str | None:
+        return self.file_parts.extension
+    
+    @property
+    def modality(self) -> str | None:
+        modalities = self.schema.rules.modalities
+        for mod_name, mod_dtypes in modalities.items():
+            if self.datatype in mod_dtypes.datatypes:
+                return mod_name
+    
+    @property
+    def size(self) -> int:
+        return self.file.direntry.stat().st_size
+    
+    @property
+    def subject(self) -> ctx.Subject | None:
+        return ctx.Subject()
+
+    @property
+    def associations(self) -> ctx.Associations:
+        return ctx.Associations()
+
+    @property
+    def columns(self) -> None:
+        pass
+
+    @property
+    def json(self) -> None:
+        pass
+
+    @property
+    def gzip(self) -> None:
+        pass
+
+    @property
+    def nifti_header(self) -> None:
+        pass
+
+    @property
+    def ome(self) -> None:
+        pass
+
+    @property
+    def tiff(self) -> None:
+        pass

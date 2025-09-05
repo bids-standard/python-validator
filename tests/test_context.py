@@ -41,3 +41,32 @@ def test_fileparts(examples, schema):
         suffix='T1w',
         extension='.nii',
     )
+
+def test_context(examples, schema):
+
+    tree = FileTree.read_from_filesystem(examples / 'synthetic')
+    ds = context.Dataset(tree, schema)
+    T1w = tree / 'sub-01' / 'ses-01' / 'anat' / 'sub-01_ses-01_T1w.nii'
+
+    file_context = context.Context(T1w, ds)
+
+    assert file_context.schema == schema
+    assert file_context.dataset == ds
+    assert file_context.entiities == {'sub': '01', 'ses': '01'}
+    assert file_context.path == '/sub-01/ses-01/anat/sub-01_ses-01_T1w.nii'
+    assert file_context.datatype == 'anat'
+    assert file_context.suffix == 'T1w'
+    assert file_context.extension == '.nii'
+    assert file_context.modality == 'mri'
+    assert file_context.size == 352
+
+    ## Tests for:
+    #  subject
+    #  sidecar
+    #  associations
+    #  columns
+    #  json
+    #  gzip
+    #  nifti_header
+    #  ome
+    #  tiff

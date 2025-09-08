@@ -46,6 +46,18 @@ class ValidationError(Exception):
     """TODO: Add issue structure."""
 
 
+_DATATYPE_MAP = {}
+
+
+def datatype_to_modality(datatype: str, schema: Namespace) -> str:
+    """Generate a global map for datatype to modality."""
+    global _DATATYPE_MAP
+    if not _DATATYPE_MAP:
+        for mod_name, mod_dtypes in schema.rules.modalities.items():
+            _DATATYPE_MAP |= dict.fromkeys(mod_dtypes['datatypes'], mod_name)
+    return _DATATYPE_MAP[datatype]
+
+
 @cache
 def load_tsv(file: FileTree, *, max_rows=0) -> Namespace:
     """Load TSV contents into a Namespace."""
@@ -130,14 +142,7 @@ class Dataset:
     @cached_property
     def modalities(self) -> list[str]:
         """List of modalities found in the dataset."""
-        result = set()
-
-        modalities = self.schema.rules.modalities
-        for datatype in self.datatypes:
-            for mod_name, mod_dtypes in modalities.items():
-                if datatype in mod_dtypes.datatypes:
-                    result.add(mod_name)
-
+        result = {datatype_to_modality(datatype, self.schema) for datatype in self.datatypes}
         return list(result)
 
     @cached_property
@@ -344,10 +349,7 @@ class Context:
     @property
     def modality(self) -> str | None:
         """Modality of current file, for examples, MRI."""
-        modalities = self.schema.rules.modalities
-        for mod_name, mod_dtypes in modalities.items():
-            if self.datatype in mod_dtypes.datatypes:
-                return mod_name
+        return datatype_to_modality(self.datatype, self.schema)
 
     @property
     def size(self) -> int:

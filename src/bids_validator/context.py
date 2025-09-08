@@ -299,8 +299,10 @@ class FileParts:
             extension=extension,
         )
 
+
 @attrs.define
 class Context:
+    """A context object that creates context for file on access."""
 
     file: FileTree
     dataset: Dataset
@@ -316,26 +318,32 @@ class Context:
 
     @property
     def path(self) -> str:
+        """Path of the current file."""
         return self.file_parts.path
 
     @property
     def entities(self) -> dict[str, str] | None:
+        """Entities parsed from the current filename."""
         return self.file_parts.entities
 
     @property
     def datatype(self) -> str | None:
+        """Datatype of current file, for examples, anat."""
         return self.file_parts.datatype
 
     @property
     def suffix(self) -> str | None:
+        """Suffix of current file."""
         return self.file_parts.suffix
 
     @property
     def extension(self) -> str | None:
+        """Extension of current file including initial dot."""
         return self.file_parts.extension
 
     @property
     def modality(self) -> str | None:
+        """Modality of current file, for examples, MRI."""
         modalities = self.schema.rules.modalities
         for mod_name, mod_dtypes in modalities.items():
             if self.datatype in mod_dtypes.datatypes:
@@ -343,40 +351,50 @@ class Context:
 
     @property
     def size(self) -> int:
+        """Length of the current file in bytes."""
         return self.file.direntry.stat().st_size
 
     @property
     def subject(self) -> ctx.Subject | None:
+        """Properties and contents of the current subject."""
         return ctx.Subject()
 
     @property
     def associations(self) -> ctx.Associations:
+        """Associated files, indexed by suffix, selected according to the inheritance principle."""
         return ctx.Associations()
 
     @property
     def columns(self) -> None:
+        """TSV columns, indexed by column header, values are arrays with column contents."""
         pass
 
     @property
     def json(self) -> None:
+        """Contents of the current JSON file."""
         pass
 
     @property
     def gzip(self) -> None:
+        """Parsed contents of gzip header."""
         pass
 
     @property
     def nifti_header(self) -> None:
+        """Parsed contents of NIfTI header referenced elsewhere in schema."""
         pass
 
     @property
     def ome(self) -> None:
+        """Parsed contents of OME-XML header, which may be found in OME-TIFF or OME-ZARR files."""
         pass
 
     @property
     def tiff(self) -> None:
+        """TIFF file format metadata."""
         pass
 
     @property
     def sidecar(self) -> None:
+        """Sidecar metadata constructed via the inheritance principle."""
         pass

@@ -304,21 +304,24 @@ class Context:
 
     file: FileTree
     dataset: Dataset
-    schema: Namespace = attrs.field(init=False)
     file_parts: FileParts = attrs.field(init=False)
 
     def __attrs_post_init__(self):
-        self.schema = self.dataset.schema
         self.file_parts = FileParts.from_file(self.file, self.schema)
-    
+
+    @property
+    def schema(self) -> Namespace:
+        """The BIDS specification schema."""
+        return self.dataset.schema
+
     @property
     def path(self) -> str:
         return self.file_parts.path
-    
+
     @property
-    def entiities(self) -> dict[str, str] | None:
+    def entities(self) -> dict[str, str] | None:
         return self.file_parts.entities
-    
+
     @property
     def datatype(self) -> str | None:
         return self.file_parts.datatype
@@ -330,18 +333,18 @@ class Context:
     @property
     def extension(self) -> str | None:
         return self.file_parts.extension
-    
+
     @property
     def modality(self) -> str | None:
         modalities = self.schema.rules.modalities
         for mod_name, mod_dtypes in modalities.items():
             if self.datatype in mod_dtypes.datatypes:
                 return mod_name
-    
+
     @property
     def size(self) -> int:
         return self.file.direntry.stat().st_size
-    
+
     @property
     def subject(self) -> ctx.Subject | None:
         return ctx.Subject()
@@ -372,4 +375,8 @@ class Context:
 
     @property
     def tiff(self) -> None:
+        pass
+
+    @property
+    def sidecar(self) -> None:
         pass

@@ -59,9 +59,11 @@ def test_context(examples, schema):
     assert file_context.extension == '.nii'
     assert file_context.modality == 'mri'
     assert file_context.size == 352
+    assert isinstance(file_context.subject.sessions, context.Sessions)
+    assert sorted(file_context.subject.sessions.ses_dirs) == ["ses-01", "ses-02"]
+    assert sorted(file_context.subject.sessions.session_id) == ["ses-01", "ses-02"]
 
     ## Tests for:
-    #  subject
     #  sidecar
     #  associations
     #  columns
@@ -70,3 +72,14 @@ def test_context(examples, schema):
     #  nifti_header
     #  ome
     #  tiff
+
+def test_sessions(examples):
+    tree = FileTree.read_from_filesystem(examples / 'synthetic')
+    sub01 = tree / 'sub-01'
+
+    sessions = context.Sessions(sub01)
+
+    assert sorted(sessions.ses_dirs) == ["ses-01", "ses-02"]
+    assert sorted(sessions.session_id) == ["ses-01", "ses-02"]
+    assert sessions.phenotype is None
+

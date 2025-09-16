@@ -270,7 +270,7 @@ class FileParts:
     extension: str | None
 
     @classmethod
-    def from_file(cls, file: FileTree, schema: Namespace) -> t.Self:
+    def from_file(cls, file: FileTree, schema: Namespace | None = None) -> t.Self:
         """Parse file parts from FileTree object."""
         stem, _, extension = file.name.partition('.')
 
@@ -280,7 +280,7 @@ class FileParts:
             extension = f'{extension}/'
 
         datatype = None
-        if file.parent:
+        if file.parent and schema:
             if any(file.parent.name == dtype.value for dtype in schema.objects.datatypes.values()):
                 datatype = file.parent.name
 

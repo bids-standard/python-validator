@@ -4,9 +4,13 @@ from bids_validator import context
 from bids_validator.types.files import FileTree
 
 
-def test_load(examples, schema):
-    tree = FileTree.read_from_filesystem(examples / 'synthetic')
-    ds = context.Dataset(tree, schema)
+@pytest.fixture
+def synthetic_dataset(examples):
+    return FileTree.read_from_filesystem(examples / 'synthetic')
+
+
+def test_load(synthetic_dataset, schema):
+    ds = context.Dataset(synthetic_dataset, schema)
 
     assert ds.dataset_description.Name.startswith('Synthetic dataset')
     assert ds.subjects.participant_id == [f'sub-{i:02d}' for i in range(1, 6)]
@@ -16,19 +20,16 @@ def test_load(examples, schema):
 
 
 @pytest.mark.parametrize(('depth', 'expected'), [(2, {'anat', 'beh', 'func'}), (1, set())])
-def test_find_datatypes(examples, schema, depth, expected):
-    tree = FileTree.read_from_filesystem(examples / 'synthetic')
+def test_find_datatypes(synthetic_dataset, schema, depth, expected):
     datatypes = schema.objects.datatypes
 
-    result = context.find_datatypes(tree, datatypes, max_depth=depth)
+    result = context.find_datatypes(synthetic_dataset, datatypes, max_depth=depth)
 
     assert result == expected
 
 
-def test_fileparts(examples, schema):
-    tree = FileTree.read_from_filesystem(examples / 'synthetic')
-
-    T1w = tree / 'sub-01' / 'ses-01' / 'anat' / 'sub-01_ses-01_T1w.nii'
+def test_fileparts(synthetic_dataset, schema):
+    T1w = synthetic_dataset / 'sub-01' / 'ses-01' / 'anat' / 'sub-01_ses-01_T1w.nii'
     parts = context.FileParts.from_file(T1w, schema)
     assert parts == context.FileParts(
         path='/sub-01/ses-01/anat/sub-01_ses-01_T1w.nii',

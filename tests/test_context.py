@@ -39,3 +39,16 @@ def test_fileparts(synthetic_dataset, schema):
         suffix='T1w',
         extension='.nii',
     )
+
+
+def test_walkback(synthetic_dataset, schema):
+    bold = (
+        synthetic_dataset
+        / 'sub-01'
+        / 'ses-01'
+        / 'func'
+        / 'sub-01_ses-01_task-nback_run-01_bold.nii'
+    )
+    sidecars = list(context.walk_back(bold, inherit=True))
+    assert len(sidecars) == 1
+    assert sidecars[0] is synthetic_dataset / 'task-nback_bold.json'

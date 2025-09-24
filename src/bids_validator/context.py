@@ -373,9 +373,12 @@ class Context:
         pass
 
     @property
-    def json(self) -> None:
+    def json(self) -> Namespace | None:
         """Contents of the current JSON file."""
-        pass
+        if self.file_parts.extension == '.json':
+            return Namespace.build(load_json(self.file))
+
+        return None
 
     @property
     def gzip(self) -> None:

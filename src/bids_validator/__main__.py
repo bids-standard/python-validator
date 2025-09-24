@@ -8,6 +8,7 @@ except ImportError:
     raise SystemExit(1) from None
 
 import sys
+from collections.abc import Iterator
 from typing import Annotated
 
 from bidsschematools.schema import load_schema
@@ -25,7 +26,7 @@ def is_subject_dir(tree):
     return tree.name.startswith('sub-')
 
 
-def walk(tree: FileTree, dataset: Dataset, subject: Subject = None):
+def walk(tree: FileTree, dataset: Dataset, subject: Subject = None) -> Iterator[Context]:
     """Iterate over children of a FileTree and check if they are a directory or file.
 
     If it's a directory then run again recursively, if it's a file file check the file name is

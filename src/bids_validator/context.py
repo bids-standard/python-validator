@@ -311,7 +311,7 @@ class Context:
 
     file: FileTree
     dataset: Dataset
-    subject: ctx.Subject
+    subject: ctx.Subject | None
     file_parts: FileParts = attrs.field(init=False)
 
     def __attrs_post_init__(self):
@@ -350,7 +350,7 @@ class Context:
     @property
     def modality(self) -> str | None:
         """Modality of current file, for examples, MRI."""
-        return datatype_to_modality(self.datatype, self.schema)
+        return datatype_to_modality(self.file_parts.datatype, self.schema)
 
     @property
     def size(self) -> int:

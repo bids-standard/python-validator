@@ -12,6 +12,8 @@ from typing import Annotated
 
 from bids_validator import BIDSValidator
 from bids_validator.types.files import FileTree
+from bids_validator.context import Dataset
+from bidsschematools.types import Namespace
 
 app = typer.Typer()
 
@@ -35,7 +37,7 @@ def walk(tree: FileTree):
             yield child
 
 
-def validate(tree: FileTree):
+def validate(tree: FileTree, schema: Namespace):
     """Check if the file path is BIDS compliant.
 
     Parameters
@@ -45,6 +47,7 @@ def validate(tree: FileTree):
 
     """
     validator = BIDSValidator()
+    dataset = Dataset(tree, schema)
 
     for file in walk(tree):
         # The output of the FileTree.relative_path method always drops the initial for the path

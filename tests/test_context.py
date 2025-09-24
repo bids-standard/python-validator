@@ -1,6 +1,6 @@
 import pytest
-
 from bidsschematools.types.context import Subject
+
 from bids_validator import context
 from bids_validator.types.files import FileTree
 
@@ -54,8 +54,8 @@ def test_walkback(synthetic_dataset, schema):
     assert len(sidecars) == 1
     assert sidecars[0] is synthetic_dataset / 'task-nback_bold.json'
 
-def test_context(synthetic_dataset, schema):
 
+def test_context(synthetic_dataset, schema):
     sub01 = synthetic_dataset / 'sub-01'
     T1w = sub01 / 'ses-01' / 'anat' / 'sub-01_ses-01_T1w.nii'
     bold = sub01 / 'ses-01' / 'func' / 'sub-01_ses-01_task-nback_run-01_bold.nii'
@@ -74,8 +74,8 @@ def test_context(synthetic_dataset, schema):
     assert T1w_context.modality == 'mri'
     assert T1w_context.size == 352
     assert isinstance(T1w_context.subject.sessions, context.Sessions)
-    assert sorted(T1w_context.subject.sessions.ses_dirs) == ["ses-01", "ses-02"]
-    assert sorted(T1w_context.subject.sessions.session_id) == ["ses-01", "ses-02"]
+    assert sorted(T1w_context.subject.sessions.ses_dirs) == ['ses-01', 'ses-02']
+    assert sorted(T1w_context.subject.sessions.session_id) == ['ses-01', 'ses-02']
     assert T1w_context.sidecar is None
     assert T1w_context.json is None
 
@@ -87,32 +87,32 @@ def test_context(synthetic_dataset, schema):
     ## Tests for:
     #  associations
     #  columns
-    #  json
     #  gzip
     #  nifti_header
     #  ome
     #  tiff
 
-def test_context_json(examples, schema):
 
+def test_context_json(examples, schema):
     dataset = FileTree.read_from_filesystem(examples / 'qmri_vfa')
-    file = dataset / 'sub-01' / 'anat'/'sub-01_flip-1_VFA.json'
+    file = dataset / 'sub-01' / 'anat' / 'sub-01_flip-1_VFA.json'
 
     ds = context.Dataset(dataset, schema)
     file_context = context.Context(file, ds, subject=None)
 
     assert file_context.json.to_dict() == {'FlipAngle': 3, 'RepetitionTimeExcitation': 0.0150}
 
+
 def test_sidecar_inheritance(examples):
     """Test to ensure inheritance principle is executed correctly"""
     dataset = FileTree.read_from_filesystem(examples / 'qmri_mp2rage')
-    file = dataset / "sub-1" / "anat"/"sub-1_inv-2_part-mag_MP2RAGE.nii"
+    file = dataset / 'sub-1' / 'anat' / 'sub-1_inv-2_part-mag_MP2RAGE.nii'
 
     sidecar = context.load_sidecar(file)
 
-    assert sidecar["FlipAngle"] == 7
-    assert sidecar["InversionTime"] == 2.7
-    assert sidecar["RepetitionTimePreparation"] == 5.5
+    assert sidecar['FlipAngle'] == 7
+    assert sidecar['InversionTime'] == 2.7
+    assert sidecar['RepetitionTimePreparation'] == 5.5
 
 
 def test_sessions(synthetic_dataset):
@@ -120,5 +120,5 @@ def test_sessions(synthetic_dataset):
 
     sessions = context.Sessions(sub01)
 
-    assert sorted(sessions.ses_dirs) == ["ses-01", "ses-02"]
-    assert sorted(sessions.session_id) == ["ses-01", "ses-02"]
+    assert sorted(sessions.ses_dirs) == ['ses-01', 'ses-02']
+    assert sorted(sessions.session_id) == ['ses-01', 'ses-02']

@@ -207,6 +207,12 @@ def load_sidecar(file: FileTree) -> dict[str, t.Any]:
     # Uses walk back algorithm
     # https://bids-validator.readthedocs.io/en/latest/validation-model/inheritance-principle.html
     # Accumulates all sidecars
+    metadata = {}
+
+    for json in walk_back(file, inherit=True):
+        metadata = load_json(json) | metadata
+
+    return metadata
 
 
 def walk_back(
@@ -393,9 +399,14 @@ class Context:
         pass
 
     @property
-    def sidecar(self) -> None:
+    def sidecar(self) -> Namespace | None:
         """Sidecar metadata constructed via the inheritance principle."""
-        pass
+        sidecar = load_sidecar(self.file)
+
+        if sidecar:
+            return Namespace.build(sidecar)
+
+        return None
 
 
 class Sessions:

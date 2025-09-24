@@ -59,7 +59,7 @@ def test_context(synthetic_dataset, schema):
     sub01 = synthetic_dataset / 'sub-01'
     T1w = sub01 / 'ses-01' / 'anat' / 'sub-01_ses-01_T1w.nii'
     bold = sub01 / 'ses-01' / 'func' / 'sub-01_ses-01_task-nback_run-01_bold.nii'
-    
+
     subject = Subject(context.Sessions(sub01))
     ds = context.Dataset(synthetic_dataset, schema)
     T1w_context = context.Context(T1w, ds, subject)
@@ -77,10 +77,12 @@ def test_context(synthetic_dataset, schema):
     assert sorted(T1w_context.subject.sessions.ses_dirs) == ["ses-01", "ses-02"]
     assert sorted(T1w_context.subject.sessions.session_id) == ["ses-01", "ses-02"]
     assert T1w_context.sidecar is None
+    assert T1w_context.json is None
 
     bold_context = context.Context(bold, ds, subject)
 
     assert bold_context.sidecar.to_dict() == {'TaskName': 'N-Back', 'RepetitionTime': 2.5}
+    assert bold_context.json is None
 
     ## Tests for:
     #  associations
@@ -90,6 +92,16 @@ def test_context(synthetic_dataset, schema):
     #  nifti_header
     #  ome
     #  tiff
+
+def test_context_json(examples, schema):
+
+    dataset = FileTree.read_from_filesystem(examples / 'qmri_vfa')
+    file = dataset / 'sub-01' / 'anat'/'sub-01_flip-1_VFA.json'
+
+    ds = context.Dataset(dataset, schema)
+    file_context = context.Context(file, ds, subject=None)
+
+    assert file_context.json.to_dict() == {'FlipAngle': 3, 'RepetitionTimeExcitation': 0.0150}
 
 def test_sidecar_inheritance(examples):
     """Test to ensure inheritance principle is executed correctly"""

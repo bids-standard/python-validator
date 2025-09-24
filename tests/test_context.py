@@ -1,5 +1,6 @@
 import pytest
 
+from bidsschematools.types.context import Subject
 from bids_validator import context
 from bids_validator.types.files import FileTree
 
@@ -53,13 +54,14 @@ def test_walkback(synthetic_dataset, schema):
     assert len(sidecars) == 1
     assert sidecars[0] is synthetic_dataset / 'task-nback_bold.json'
 
-def test_context(examples, schema):
+def test_context(synthetic_dataset, schema):
 
-    tree = FileTree.read_from_filesystem(examples / 'synthetic')
-    ds = context.Dataset(tree, schema)
-    T1w = tree / 'sub-01' / 'ses-01' / 'anat' / 'sub-01_ses-01_T1w.nii'
-
-    file_context = context.Context(T1w, ds)
+    sub01 = synthetic_dataset / 'sub-01'
+    T1w = sub01 / 'ses-01' / 'anat' / 'sub-01_ses-01_T1w.nii'
+    
+    subject = Subject(context.Sessions(sub01))
+    ds = context.Dataset(synthetic_dataset, schema)
+    file_context = context.Context(T1w, ds, subject)
 
     assert file_context.schema is schema
     assert file_context.dataset is ds
@@ -84,9 +86,8 @@ def test_context(examples, schema):
     #  ome
     #  tiff
 
-def test_sessions(examples):
-    tree = FileTree.read_from_filesystem(examples / 'synthetic')
-    sub01 = tree / 'sub-01'
+def test_sessions(synthetic_dataset):
+    sub01 = synthetic_dataset / 'sub-01'
 
     sessions = context.Sessions(sub01)
 

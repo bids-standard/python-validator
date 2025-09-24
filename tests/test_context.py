@@ -58,24 +58,29 @@ def test_context(synthetic_dataset, schema):
 
     sub01 = synthetic_dataset / 'sub-01'
     T1w = sub01 / 'ses-01' / 'anat' / 'sub-01_ses-01_T1w.nii'
+    bold = sub01 / 'ses-01' / 'func' / 'sub-01_ses-01_task-nback_run-01_bold.nii'
     
     subject = Subject(context.Sessions(sub01))
     ds = context.Dataset(synthetic_dataset, schema)
-    file_context = context.Context(T1w, ds, subject)
+    T1w_context = context.Context(T1w, ds, subject)
 
-    assert file_context.schema is schema
-    assert file_context.dataset is ds
-    assert file_context.entities == {'sub': '01', 'ses': '01'}
-    assert file_context.path == '/sub-01/ses-01/anat/sub-01_ses-01_T1w.nii'
-    assert file_context.datatype == 'anat'
-    assert file_context.suffix == 'T1w'
-    assert file_context.extension == '.nii'
-    assert file_context.modality == 'mri'
-    assert file_context.size == 352
-    assert isinstance(file_context.subject.sessions, context.Sessions)
-    assert sorted(file_context.subject.sessions.ses_dirs) == ["ses-01", "ses-02"]
-    assert sorted(file_context.subject.sessions.session_id) == ["ses-01", "ses-02"]
-    assert file_context.sidecar is None
+    assert T1w_context.schema is schema
+    assert T1w_context.dataset is ds
+    assert T1w_context.entities == {'sub': '01', 'ses': '01'}
+    assert T1w_context.path == '/sub-01/ses-01/anat/sub-01_ses-01_T1w.nii'
+    assert T1w_context.datatype == 'anat'
+    assert T1w_context.suffix == 'T1w'
+    assert T1w_context.extension == '.nii'
+    assert T1w_context.modality == 'mri'
+    assert T1w_context.size == 352
+    assert isinstance(T1w_context.subject.sessions, context.Sessions)
+    assert sorted(T1w_context.subject.sessions.ses_dirs) == ["ses-01", "ses-02"]
+    assert sorted(T1w_context.subject.sessions.session_id) == ["ses-01", "ses-02"]
+    assert T1w_context.sidecar is None
+
+    bold_context = context.Context(bold, ds, subject)
+
+    assert bold_context.sidecar.to_dict() == {'TaskName': 'N-Back', 'RepetitionTime': 2.5}
 
     ## Tests for:
     #  associations

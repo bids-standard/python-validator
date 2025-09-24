@@ -224,8 +224,8 @@ def walk_back(
             yield file_group
         elif len(file_group) == 1:
             yield file_group[0]
-        else:
-            raise ValidationError('Multiple matching files.')
+        elif file_group:
+            raise ValidationError(f'Multiple matching files: {file_group}')
 
 
 def _walk_back(
@@ -235,7 +235,7 @@ def _walk_back(
     target_suffix: str | None,
     target_entities: tuple[str, ...],
 ) -> Generator[list[FileTree, ...]]:
-    file_parts = FileParts.from_file(source.relative_path)
+    file_parts = FileParts.from_file(source)
 
     if target_suffix is None:
         target_suffix = file_parts.suffix
@@ -243,11 +243,11 @@ def _walk_back(
     tree = source.parent
     while tree:
         matches = []
-        for child in tree.children:
+        for child in tree.children.values():
             if child.is_dir:
                 continue
-            parts = FileParts.from_file(child.relative_path)
-            if parts.extension != target_extensions:
+            parts = FileParts.from_file(child)
+            if parts.extension not in target_extensions:
                 continue
             if parts.suffix != target_suffix:
                 continue
@@ -275,7 +275,7 @@ class FileParts:
     extension: str | None
 
     @classmethod
-    def from_file(cls, file: FileTree, schema: Namespace) -> t.Self:
+    def from_file(cls, file: FileTree, schema: Namespace | None = None) -> t.Self:
         """Parse file parts from FileTree object."""
         stem, _, extension = file.name.partition('.')
 
@@ -285,7 +285,7 @@ class FileParts:
             extension = f'{extension}/'
 
         datatype = None
-        if file.parent:
+        if file.parent and schema:
             if any(file.parent.name == dtype.value for dtype in schema.objects.datatypes.values()):
                 datatype = file.parent.name
 

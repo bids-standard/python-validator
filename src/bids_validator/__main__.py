@@ -12,13 +12,16 @@ from typing import Annotated
 
 from bids_validator import BIDSValidator
 from bids_validator.types.files import FileTree
-from bids_validator.context import Dataset
+from bids_validator.context import Dataset, Sessions, Context
 from bidsschematools.types import Namespace
+from bidsschematools.types.context import Subject
 
 app = typer.Typer()
 
+def is_subject_dir(tree):
+    return tree.name.startswith('sub-')
 
-def walk(tree: FileTree):
+def walk(tree: FileTree, dataset: Dataset, subject = None):
     """Iterate over children of a FileTree and check if they are a directory or file.
 
     If it's a directory then run again recursively, if it's a file file check the file name is
@@ -30,11 +33,14 @@ def walk(tree: FileTree):
         FileTree object to iterate over
 
     """
+    if subject is None and is_subject_dir(tree):
+        subject = Subject(Sessions(tree))
+
     for child in tree.children.values():
         if child.is_dir:
-            yield from walk(child)
+            yield from walk(child, dataset, subject)
         else:
-            yield child
+            yield Context(child, dataset, subject)
 
 
 def validate(tree: FileTree, schema: Namespace):
@@ -49,7 +55,7 @@ def validate(tree: FileTree, schema: Namespace):
     validator = BIDSValidator()
     dataset = Dataset(tree, schema)
 
-    for file in walk(tree):
+    for file in walk(tree, dataset):
         # The output of the FileTree.relative_path method always drops the initial for the path
         # which makes it fail the validator.is_bids check. THis may be a Windows specific thing.
         # This line adds it back.

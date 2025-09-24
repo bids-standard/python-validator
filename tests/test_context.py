@@ -75,9 +75,9 @@ def test_context(synthetic_dataset, schema):
     assert isinstance(file_context.subject.sessions, context.Sessions)
     assert sorted(file_context.subject.sessions.ses_dirs) == ["ses-01", "ses-02"]
     assert sorted(file_context.subject.sessions.session_id) == ["ses-01", "ses-02"]
+    assert file_context.sidecar is None
 
     ## Tests for:
-    #  sidecar
     #  associations
     #  columns
     #  json
@@ -85,6 +85,18 @@ def test_context(synthetic_dataset, schema):
     #  nifti_header
     #  ome
     #  tiff
+
+def test_sidecar_inheritance(examples):
+    """Test to ensure inheritance principle is executed correctly"""
+    dataset = FileTree.read_from_filesystem(examples / 'qmri_mp2rage')
+    file = dataset / "sub-1" / "anat"/"sub-1_inv-2_part-mag_MP2RAGE.nii"
+
+    sidecar = context.load_sidecar(file)
+
+    assert sidecar["FlipAngle"] == 7
+    assert sidecar["InversionTime"] == 2.7
+    assert sidecar["RepetitionTimePreparation"] == 5.5
+
 
 def test_sessions(synthetic_dataset):
     sub01 = synthetic_dataset / 'sub-01'

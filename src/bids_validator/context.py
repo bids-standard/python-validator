@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import itertools
-import json
 from functools import cache
 
 import attrs
+import orjson
 from bidsschematools.types import Namespace
 from bidsschematools.types import context as ctx
 from upath import UPath
@@ -72,8 +72,7 @@ def load_tsv(file: FileTree, *, max_rows=0) -> Namespace:
 @cache
 def load_json(file: FileTree) -> dict[str]:
     """Load JSON file contents."""
-    with open(file) as fobj:
-        return json.load(fobj)
+    return orjson.loads(UPath(file).read_bytes())
 
 
 class Subjects:

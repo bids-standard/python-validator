@@ -10,18 +10,21 @@ except ImportError:
 import sys
 from typing import Annotated
 
-from bids_validator import BIDSValidator
-from bids_validator.types.files import FileTree
-from bids_validator.context import Dataset, Sessions, Context
 from bidsschematools.types import Namespace
 from bidsschematools.types.context import Subject
 
+from bids_validator import BIDSValidator
+from bids_validator.context import Context, Dataset, Sessions
+from bids_validator.types.files import FileTree
+
 app = typer.Typer()
+
 
 def is_subject_dir(tree):
     return tree.name.startswith('sub-')
 
-def walk(tree: FileTree, dataset: Dataset, subject = None):
+
+def walk(tree: FileTree, dataset: Dataset, subject: Subject = None):
     """Iterate over children of a FileTree and check if they are a directory or file.
 
     If it's a directory then run again recursively, if it's a file file check the file name is
@@ -31,6 +34,10 @@ def walk(tree: FileTree, dataset: Dataset, subject = None):
     ----------
     tree : FileTree
         FileTree object to iterate over
+    dataset: Dataset
+        Object containing properties for entire dataset
+    subject: Subject
+        object containing subject and session info
 
     """
     if subject is None and is_subject_dir(tree):
@@ -50,6 +57,8 @@ def validate(tree: FileTree, schema: Namespace):
     ----------
     tree : FileTree
         Full FileTree object to iterate over and check
+    schema : Namespace
+        Schema object to validate dataset against
 
     """
     validator = BIDSValidator()

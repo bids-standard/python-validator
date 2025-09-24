@@ -397,6 +397,7 @@ class Context:
         """Sidecar metadata constructed via the inheritance principle."""
         pass
 
+
 class Sessions:
     """Collections of sessions in subject."""
 

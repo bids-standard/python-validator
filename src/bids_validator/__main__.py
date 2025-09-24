@@ -10,6 +10,7 @@ except ImportError:
 import sys
 from typing import Annotated
 
+from bidsschematools.schema import load_schema
 from bidsschematools.types import Namespace
 from bidsschematools.types.context import Subject
 
@@ -103,6 +104,7 @@ def version_callback(value: bool):
 @app.command()
 def main(
     bids_path: str,
+    schema_path: str = None,
     verbose: Annotated[bool, typer.Option('--verbose', '-v', help='Show verbose output')] = False,
     version: Annotated[
         bool,
@@ -119,7 +121,10 @@ def main(
 
     root_path = FileTree.read_from_filesystem(bids_path)
 
-    validate(root_path)
+    if not schema_path:
+        schema = load_schema()
+
+    validate(root_path, schema)
 
 
 if __name__ == '__main__':

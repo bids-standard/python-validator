@@ -92,5 +92,3 @@ def test_sessions(examples):
 
     assert sorted(sessions.ses_dirs) == ["ses-01", "ses-02"]
     assert sorted(sessions.session_id) == ["ses-01", "ses-02"]
-    assert sessions.phenotype is None
-

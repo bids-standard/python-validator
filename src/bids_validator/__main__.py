@@ -66,13 +66,8 @@ def validate(tree: FileTree, schema: Namespace):
     dataset = Dataset(tree, schema)
 
     for file in walk(tree, dataset):
-        # The output of the FileTree.relative_path method always drops the initial for the path
-        # which makes it fail the validator.is_bids check. THis may be a Windows specific thing.
-        # This line adds it back.
-        path = f'/{file.relative_path}'
-
-        if not validator.is_bids(path):
-            print(f'{path} is not a valid bids filename')
+        if not validator.is_bids(file.path):
+            print(f'{file.path} is not a valid bids filename')
 
 
 def show_version():

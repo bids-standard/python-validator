@@ -400,3 +400,34 @@ class Context:
     def sidecar(self) -> None:
         """Sidecar metadata constructed via the inheritance principle."""
         pass
+
+class Sessions:
+    """Collections of sessions in subject."""
+
+    def __init__(self, tree: FileTree):
+        self._tree = tree
+
+    @cached_property
+    def ses_dirs(self) -> list[str]:
+        """Sessions as determined by ses-* directories."""
+        return [
+            child.name
+            for child in self._tree.children.values()
+            if child.is_dir and child.name.startswith('ses-')
+        ]
+
+    @property
+    def session_id(self) -> list[str] | None:
+        """The session_id column of *_sessions.tsv."""
+        for name, value in self._tree.children.items():
+            if name.endswith('_sessions.tsv'):
+                return self._get_session_id(value)
+        else:
+            return None
+
+    @staticmethod
+    def _get_session_id(phenotype_file: FileTree) -> list[str] | None:
+        columns = load_tsv(phenotype_file)
+        if 'session_id' not in columns:
+            return None
+        return list(columns['session_id'])

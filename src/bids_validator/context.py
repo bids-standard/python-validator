@@ -311,6 +311,7 @@ class Context:
 
     file: FileTree
     dataset: Dataset
+    subject: ctx.Subject
     file_parts: FileParts = attrs.field(init=False)
 
     def __attrs_post_init__(self):
@@ -355,11 +356,6 @@ class Context:
     def size(self) -> int:
         """Length of the current file in bytes."""
         return self.file.direntry.stat().st_size
-
-    @property
-    def subject(self) -> ctx.Subject | None:
-        """Properties and contents of the current subject."""
-        return ctx.Subject()
 
     @property
     def associations(self) -> ctx.Associations:

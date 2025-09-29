@@ -76,7 +76,7 @@ def test_context(synthetic_dataset, schema):
     assert isinstance(T1w_context.subject.sessions, context.Sessions)
     assert sorted(T1w_context.subject.sessions.ses_dirs) == ['ses-01', 'ses-02']
     assert sorted(T1w_context.subject.sessions.session_id) == ['ses-01', 'ses-02']
-    assert T1w_context.sidecar is None
+    assert T1w_context.sidecar == {}
     assert T1w_context.json is None
 
     bold_context = context.Context(bold, ds, subject)

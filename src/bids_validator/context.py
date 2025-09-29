@@ -61,7 +61,7 @@ def datatype_to_modality(datatype: str, schema: Namespace) -> str:
 @cache
 def load_tsv(file: FileTree, *, max_rows=0) -> Namespace:
     """Load TSV contents into a Namespace."""
-    with open(file) as fobj:
+    with file.path_obj.open() as fobj:
         if max_rows > 0:
             fobj = itertools.islice(fobj, max_rows)
         contents = (line.rstrip('\r\n').split('\t') for line in fobj)
@@ -72,7 +72,7 @@ def load_tsv(file: FileTree, *, max_rows=0) -> Namespace:
 @cache
 def load_json(file: FileTree) -> dict[str]:
     """Load JSON file contents."""
-    return orjson.loads(UPath(file).read_bytes())
+    return orjson.loads(file.path_obj.read_bytes())
 
 
 class Subjects:
@@ -360,7 +360,7 @@ class Context:
     @property
     def size(self) -> int:
         """Length of the current file in bytes."""
-        return self.file.direntry.stat().st_size
+        return self.file.path_obj.stat().st_size
 
     @property
     def associations(self) -> ctx.Associations:

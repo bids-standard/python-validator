@@ -9,7 +9,7 @@ except ImportError:
 
 import sys
 from collections.abc import Iterator
-from typing import Annotated
+from typing import Annotated, Optional
 
 from bidsschematools.schema import load_schema
 from bidsschematools.types import Namespace
@@ -100,7 +100,7 @@ def version_callback(value: bool):
 @app.command()
 def main(
     bids_path: str,
-    schema_path: str | None = None,
+    schema_path: Optional[str] = None,
     verbose: Annotated[bool, typer.Option('--verbose', '-v', help='Show verbose output')] = False,
     version: Annotated[
         bool,

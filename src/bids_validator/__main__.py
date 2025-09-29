@@ -100,7 +100,7 @@ def version_callback(value: bool):
 @app.command()
 def main(
     bids_path: str,
-    schema_path: str = None,
+    schema_path: str | None = None,
     verbose: Annotated[bool, typer.Option('--verbose', '-v', help='Show verbose output')] = False,
     version: Annotated[
         bool,
@@ -117,8 +117,7 @@ def main(
 
     root_path = FileTree.read_from_filesystem(bids_path)
 
-    if not schema_path:
-        schema = load_schema()
+    schema = load_schema(schema_path)
 
     validate(root_path, schema)
 

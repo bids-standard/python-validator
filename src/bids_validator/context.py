@@ -403,12 +403,9 @@ class Context:
     @property
     def sidecar(self) -> Namespace | None:
         """Sidecar metadata constructed via the inheritance principle."""
-        sidecar = load_sidecar(self.file)
+        sidecar = load_sidecar(self.file) or {}
 
-        if sidecar:
-            return Namespace.build(sidecar)
-
-        return None
+        return Namespace.build(sidecar)
 
 
 class Sessions:

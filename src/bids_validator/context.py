@@ -381,7 +381,10 @@ class Context:
     @property
     def columns(self) -> None:
         """TSV columns, indexed by column header, values are arrays with column contents."""
-        pass
+        if self.extension == '.tsv':
+            return load_tsv(self.file)
+        elif self.extension == '.tsv.gz':
+            return load_tsv_gz(self.file, tuple(self.sidecar.Columns))
 
     @property
     def json(self) -> Namespace | None:

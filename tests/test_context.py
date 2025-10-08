@@ -1,3 +1,6 @@
+import json
+
+import fsspec
 import pytest
 from bidsschematools.types.context import Subject
 
@@ -8,6 +11,14 @@ from bids_validator.types.files import FileTree
 @pytest.fixture
 def synthetic_dataset(examples):
     return FileTree.read_from_filesystem(examples / 'synthetic')
+
+
+@pytest.fixture
+def memfs():
+    mem = fsspec.filesystem('memory')
+    mem.store.clear()
+    yield mem
+    mem.store.clear()
 
 
 def test_load(synthetic_dataset, schema):
@@ -113,6 +124,33 @@ def test_sidecar_inheritance(examples):
     assert sidecar['FlipAngle'] == 7
     assert sidecar['InversionTime'] == 2.7
     assert sidecar['RepetitionTimePreparation'] == 5.5
+
+
+def test_sidecar_order(memfs):
+    """Test to ensure inheritance principle is skipped when inherit=False"""
+    root_json = {'rootOverwriteA': 'root', 'rootOverwriteB': 'root', 'rootValue': 'root'}
+    subject_json = {'rootOverwriteA': 'subject', 'subOverwrite': 'subject', 'subValue': 'subject'}
+    anat_json = {'rootOverwriteB': 'anat', 'subOverwrite': 'anat', 'anatValue': 'anat'}
+    memfs.pipe(
+        {
+            '/T1w.json': json.dumps(root_json).encode(),
+            '/sub-01/sub-01_T1w.json': json.dumps(subject_json).encode(),
+            '/sub-01/anat/sub-01_T1w.json': json.dumps(anat_json).encode(),
+            '/sub-01/anat/sub-01_T1w.nii': b'',
+        }
+    )
+
+    dataset = FileTree.read_from_filesystem('memory://')
+    file = dataset / 'sub-01' / 'anat' / 'sub-01_T1w.nii'
+    sidecar = context.load_sidecar(file)
+    assert sidecar == {
+        'rootValue': 'root',
+        'subValue': 'subject',
+        'rootOverwriteA': 'subject',
+        'anatValue': 'anat',
+        'rootOverwriteB': 'anat',
+        'subOverwrite': 'anat',
+    }
 
 
 def test_sessions(synthetic_dataset):

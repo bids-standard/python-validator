@@ -73,10 +73,11 @@ def load_tsv(file: FileTree, *, max_rows=0) -> Namespace:
 @cache
 def load_tsv_gz(file: FileTree, headers: tuple[str], *, max_rows=0) -> Namespace:
     """Load TSVGZ contents into a Namespace."""
-    with gzip.open(file, 'rt') as fobj:
+    with file.path_obj.open('rb') as fobj:
+        gzobj = gzip.GzipFile(fileobj=fobj, mode='r')
         if max_rows > 0:
-            fobj = itertools.islice(fobj, max_rows)
-        contents = (line.rstrip('\r\n').split('\t') for line in fobj)
+            gzobj = itertools.islice(gzobj, max_rows)
+        contents = (line.rstrip('\r\n').split('\t') for line in gzobj)
         return Namespace(zip(headers, zip(*contents)))
 
 

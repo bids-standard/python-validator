@@ -163,24 +163,28 @@ def test_sessions(synthetic_dataset):
 
 
 def test_load_tsv(synthetic_dataset):
-
     tsv_file_tree = synthetic_dataset / 'participants.tsv'
     tsv_file = context.load_tsv(tsv_file_tree)
 
     data_set = {
-        "participant_id": ("sub-01", "sub-02", "sub-03", "sub-04", "sub-05"),
-        "age": (34, 38, 22, 21, 42),
-        "sex": ("F", "M", "M", "F", "M")
+        'participant_id': ('sub-01', 'sub-02', 'sub-03', 'sub-04', 'sub-05'),
+        'age': (34, 38, 22, 21, 42),
+        'sex': ('F', 'M', 'M', 'F', 'M'),
     }
 
     assert tsv_file.keys() == data_set.keys()
-    assert [tsv_file[key] == data_set[key] for key in tsv_file.keys()]  
+    assert [tsv_file[key] == data_set[key] for key in tsv_file.keys()]
 
 
 def test_load_tsv_gz(synthetic_dataset):
-
-    headers = ("respiratory", "cardiac")
-    tsvgz_file_tree = synthetic_dataset / "sub-01" / "ses-01" / "func" /"sub-01_ses-01_task-nback_run-01_stim.tsv.gz"
+    headers = ('respiratory', 'cardiac')
+    tsvgz_file_tree = (
+        synthetic_dataset
+        / 'sub-01'
+        / 'ses-01'
+        / 'func'
+        / 'sub-01_ses-01_task-nback_run-01_stim.tsv.gz'
+    )
 
     tsvgz_file = context.load_tsv_gz(tsvgz_file_tree, headers)
 

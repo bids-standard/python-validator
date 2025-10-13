@@ -3,7 +3,7 @@
 import os
 import re
 from functools import lru_cache
-from typing import Protocol, Union
+from typing import Protocol
 
 import attrs
 
@@ -11,7 +11,7 @@ from .types.files import FileTree
 
 
 @lru_cache
-def compile_pat(pattern: str) -> Union[re.Pattern, None]:
+def compile_pat(pattern: str) -> re.Pattern | None:
     """Compile .gitignore-style ignore lines to regular expressions."""
     orig = pattern
     # A line starting with # serves as a comment.

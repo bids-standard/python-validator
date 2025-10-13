@@ -67,7 +67,7 @@ def load_tsv(file: FileTree, *, max_rows=0) -> Namespace:
             fobj = itertools.islice(fobj, max_rows)
         contents = (line.rstrip('\r\n').split('\t') for line in fobj)
         # Extract headers then transpose rows to columns
-        return Namespace(zip(next(contents), zip(*contents)))
+        return Namespace(zip(next(contents), zip(*contents, strict=False), strict=False))
 
 
 @cache
@@ -78,7 +78,7 @@ def load_tsv_gz(file: FileTree, headers: tuple[str], *, max_rows=0) -> Namespace
         if max_rows > 0:
             gzobj = itertools.islice(gzobj, max_rows)
         contents = (line.decode().rstrip('\r\n').split('\t') for line in gzobj)
-        return Namespace(zip(headers, zip(*contents)))
+        return Namespace(zip(headers, zip(*contents, strict=False), strict=False))
 
 
 @cache

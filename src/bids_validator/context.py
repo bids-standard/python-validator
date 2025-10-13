@@ -77,7 +77,7 @@ def load_tsv_gz(file: FileTree, headers: tuple[str], *, max_rows=0) -> Namespace
         gzobj = gzip.GzipFile(fileobj=fobj, mode='r')
         if max_rows > 0:
             gzobj = itertools.islice(gzobj, max_rows)
-        contents = (line.rstrip('\r\n').split('\t') for line in gzobj)
+        contents = (line.decode().rstrip('\r\n').split('\t') for line in gzobj)
         return Namespace(zip(headers, zip(*contents)))
 
 

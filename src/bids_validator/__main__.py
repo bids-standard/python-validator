@@ -8,15 +8,25 @@ except ImportError:
     raise SystemExit(1) from None
 
 import sys
-from typing import Annotated
+from collections.abc import Iterator
+from typing import Annotated, Optional
+
+from bidsschematools.schema import load_schema
+from bidsschematools.types import Namespace
+from bidsschematools.types.context import Subject
 
 from bids_validator import BIDSValidator
+from bids_validator.context import Context, Dataset, Sessions
 from bids_validator.types.files import FileTree
 
 app = typer.Typer()
 
 
-def walk(tree: FileTree):
+def is_subject_dir(tree):
+    return tree.name.startswith('sub-')
+
+
+def walk(tree: FileTree, dataset: Dataset, subject: Subject = None) -> Iterator[Context]:
     """Iterate over children of a FileTree and check if they are a directory or file.
 
     If it's a directory then run again recursively, if it's a file file check the file name is
@@ -26,34 +36,39 @@ def walk(tree: FileTree):
     ----------
     tree : FileTree
         FileTree object to iterate over
+    dataset: Dataset
+        Object containing properties for entire dataset
+    subject: Subject
+        object containing subject and session info
 
     """
+    if subject is None and is_subject_dir(tree):
+        subject = Subject(Sessions(tree))
+
     for child in tree.children.values():
         if child.is_dir:
-            yield from walk(child)
+            yield from walk(child, dataset, subject)
         else:
-            yield child
+            yield Context(child, dataset, subject)
 
 
-def validate(tree: FileTree):
+def validate(tree: FileTree, schema: Namespace):
     """Check if the file path is BIDS compliant.
 
     Parameters
     ----------
     tree : FileTree
         Full FileTree object to iterate over and check
+    schema : Namespace
+        Schema object to validate dataset against
 
     """
     validator = BIDSValidator()
+    dataset = Dataset(tree, schema)
 
-    for file in walk(tree):
-        # The output of the FileTree.relative_path method always drops the initial for the path
-        # which makes it fail the validator.is_bids check. THis may be a Windows specific thing.
-        # This line adds it back.
-        path = f'/{file.relative_path}'
-
-        if not validator.is_bids(path):
-            print(f'{path} is not a valid bids filename')
+    for file in walk(tree, dataset):
+        if not validator.is_bids(file.path):
+            print(f'{file.path} is not a valid bids filename')
 
 
 def show_version():
@@ -85,6 +100,7 @@ def version_callback(value: bool):
 @app.command()
 def main(
     bids_path: str,
+    schema_path: Optional[str] = None,
     verbose: Annotated[bool, typer.Option('--verbose', '-v', help='Show verbose output')] = False,
     version: Annotated[
         bool,
@@ -101,7 +117,9 @@ def main(
 
     root_path = FileTree.read_from_filesystem(bids_path)
 
-    validate(root_path)
+    schema = load_schema(schema_path)
+
+    validate(root_path, schema)
 
 
 if __name__ == '__main__':

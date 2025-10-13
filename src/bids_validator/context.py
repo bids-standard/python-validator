@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import gzip
 import itertools
-import json
 from functools import cache
 
 import attrs
+import orjson
 from bidsschematools.types import Namespace
 from bidsschematools.types import context as ctx
 from upath import UPath
@@ -46,10 +47,22 @@ class ValidationError(Exception):
     """TODO: Add issue structure."""
 
 
+_DATATYPE_MAP = {}
+
+
+def datatype_to_modality(datatype: str, schema: Namespace) -> str:
+    """Generate a global map for datatype to modality."""
+    global _DATATYPE_MAP
+    if not _DATATYPE_MAP:
+        for mod_name, mod_dtypes in schema.rules.modalities.items():
+            _DATATYPE_MAP |= dict.fromkeys(mod_dtypes['datatypes'], mod_name)
+    return _DATATYPE_MAP[datatype]
+
+
 @cache
 def load_tsv(file: FileTree, *, max_rows=0) -> Namespace:
     """Load TSV contents into a Namespace."""
-    with open(file) as fobj:
+    with file.path_obj.open() as fobj:
         if max_rows > 0:
             fobj = itertools.islice(fobj, max_rows)
         contents = (line.rstrip('\r\n').split('\t') for line in fobj)
@@ -58,10 +71,20 @@ def load_tsv(file: FileTree, *, max_rows=0) -> Namespace:
 
 
 @cache
+def load_tsv_gz(file: FileTree, headers: tuple[str], *, max_rows=0) -> Namespace:
+    """Load TSVGZ contents into a Namespace."""
+    with file.path_obj.open('rb') as fobj:
+        gzobj = gzip.GzipFile(fileobj=fobj, mode='r')
+        if max_rows > 0:
+            gzobj = itertools.islice(gzobj, max_rows)
+        contents = (line.decode().rstrip('\r\n').split('\t') for line in gzobj)
+        return Namespace(zip(headers, zip(*contents)))
+
+
+@cache
 def load_json(file: FileTree) -> dict[str]:
     """Load JSON file contents."""
-    with open(file) as fobj:
-        return json.load(fobj)
+    return orjson.loads(file.path_obj.read_bytes())
 
 
 class Subjects:
@@ -130,14 +153,7 @@ class Dataset:
     @cached_property
     def modalities(self) -> list[str]:
         """List of modalities found in the dataset."""
-        result = set()
-
-        modalities = self.schema.rules.modalities
-        for datatype in self.datatypes:
-            for mod_name, mod_dtypes in modalities.items():
-                if datatype in mod_dtypes.datatypes:
-                    result.add(mod_name)
-
+        result = {datatype_to_modality(datatype, self.schema) for datatype in self.datatypes}
         return list(result)
 
     @cached_property
@@ -202,6 +218,12 @@ def load_sidecar(file: FileTree) -> dict[str, t.Any]:
     # Uses walk back algorithm
     # https://bids-validator.readthedocs.io/en/latest/validation-model/inheritance-principle.html
     # Accumulates all sidecars
+    metadata = {}
+
+    for json in walk_back(file, inherit=True):
+        metadata = load_json(json) | metadata
+
+    return metadata
 
 
 def walk_back(
@@ -298,3 +320,136 @@ class FileParts:
             suffix=suffix,
             extension=extension,
         )
+
+
+@attrs.define
+class Context:
+    """A context object that creates context for file on access."""
+
+    file: FileTree
+    dataset: Dataset
+    subject: ctx.Subject | None
+    file_parts: FileParts = attrs.field(init=False)
+
+    def __attrs_post_init__(self):
+        self.file_parts = FileParts.from_file(self.file, self.schema)
+
+    @property
+    def schema(self) -> Namespace:
+        """The BIDS specification schema."""
+        return self.dataset.schema
+
+    @property
+    def path(self) -> str:
+        """Path of the current file."""
+        return self.file_parts.path
+
+    @property
+    def entities(self) -> dict[str, str] | None:
+        """Entities parsed from the current filename."""
+        return self.file_parts.entities
+
+    @property
+    def datatype(self) -> str | None:
+        """Datatype of current file, for examples, anat."""
+        return self.file_parts.datatype
+
+    @property
+    def suffix(self) -> str | None:
+        """Suffix of current file."""
+        return self.file_parts.suffix
+
+    @property
+    def extension(self) -> str | None:
+        """Extension of current file including initial dot."""
+        return self.file_parts.extension
+
+    @property
+    def modality(self) -> str | None:
+        """Modality of current file, for examples, MRI."""
+        return datatype_to_modality(self.file_parts.datatype, self.schema)
+
+    @property
+    def size(self) -> int:
+        """Length of the current file in bytes."""
+        return self.file.path_obj.stat().st_size
+
+    @property
+    def associations(self) -> ctx.Associations:
+        """Associated files, indexed by suffix, selected according to the inheritance principle."""
+        return ctx.Associations()
+
+    @property
+    def columns(self) -> None:
+        """TSV columns, indexed by column header, values are arrays with column contents."""
+        if self.extension == '.tsv':
+            return load_tsv(self.file)
+        elif self.extension == '.tsv.gz':
+            return load_tsv_gz(self.file, tuple(self.sidecar.Columns))
+
+    @property
+    def json(self) -> Namespace | None:
+        """Contents of the current JSON file."""
+        if self.file_parts.extension == '.json':
+            return Namespace.build(load_json(self.file))
+
+        return None
+
+    @property
+    def gzip(self) -> None:
+        """Parsed contents of gzip header."""
+        pass
+
+    @property
+    def nifti_header(self) -> None:
+        """Parsed contents of NIfTI header referenced elsewhere in schema."""
+        pass
+
+    @property
+    def ome(self) -> None:
+        """Parsed contents of OME-XML header, which may be found in OME-TIFF or OME-ZARR files."""
+        pass
+
+    @property
+    def tiff(self) -> None:
+        """TIFF file format metadata."""
+        pass
+
+    @property
+    def sidecar(self) -> Namespace | None:
+        """Sidecar metadata constructed via the inheritance principle."""
+        sidecar = load_sidecar(self.file) or {}
+
+        return Namespace.build(sidecar)
+
+
+class Sessions:
+    """Collections of sessions in subject."""
+
+    def __init__(self, tree: FileTree):
+        self._tree = tree
+
+    @cached_property
+    def ses_dirs(self) -> list[str]:
+        """Sessions as determined by ses-* directories."""
+        return [
+            child.name
+            for child in self._tree.children.values()
+            if child.is_dir and child.name.startswith('ses-')
+        ]
+
+    @property
+    def session_id(self) -> list[str] | None:
+        """The session_id column of *_sessions.tsv."""
+        for name, value in self._tree.children.items():
+            if name.endswith('_sessions.tsv'):
+                return self._get_session_id(value)
+        else:
+            return None
+
+    @staticmethod
+    def _get_session_id(phenotype_file: FileTree) -> list[str] | None:
+        columns = load_tsv(phenotype_file)
+        if 'session_id' not in columns:
+            return None
+        return list(columns['session_id'])

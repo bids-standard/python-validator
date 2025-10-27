@@ -84,7 +84,7 @@ test = [
 requires-dist = [
     { name = "attrs", specifier = ">=24.1" },
     { name = "bidsschematools", specifier = ">=1.1" },
-    { name = "nibabel", specifier = ">=5.0" },
+    { name = "nibabel", specifier = ">=5.1.1" },
     { name = "orjson", specifier = ">=3.11.3" },
     { name = "typer", marker = "extra == 'cli'", specifier = ">=0.15" },
     { name = "universal-pathlib", specifier = ">=0.2.1" },

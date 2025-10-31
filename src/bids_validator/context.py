@@ -7,6 +7,7 @@ import itertools
 from functools import cache
 
 import attrs
+import nibabel as nb
 import orjson
 from bidsschematools.types import Namespace
 from bidsschematools.types import context as ctx
@@ -18,11 +19,15 @@ from .types.files import FileTree
 TYPE_CHECKING = False
 if TYPE_CHECKING:
     from collections.abc import Generator
+    from pathlib import Path
+    from typing import TypeVar
 
     from bidsschematools.types import protocols as proto
 
     # pyright does not treat cached_property like property
     cached_property = property
+
+    ImgT = TypeVar('ImgT', bound=nb.FileBasedImage)
 else:
     from functools import cached_property
 
@@ -85,6 +90,49 @@ def load_tsv_gz(file: FileTree, headers: tuple[str], *, max_rows=0) -> Namespace
 def load_json(file: FileTree) -> dict[str]:
     """Load JSON file contents."""
     return orjson.loads(file.path_obj.read_bytes())
+
+
+def load_image(path: Path, api: type[ImgT]) -> ImgT:
+    """Load neuroimaging file with a given nibabel API."""
+    img = nb.load(path)
+    if not isinstance(img, api):
+        raise ValueError(f'Expected image of type {api}, got {type(img)}')
+    return img
+
+
+def load_nifti_header(file: FileTree) -> ctx.NiftiHeader:
+    """Load NIfTI header contents."""
+    img = load_image(file.path_obj, nb.Nifti1Image)
+
+    # Nibabel uses None,0,1,2, BIDS context uses 1,2,3 with 0 as absent
+    freq, phase, slc = (dim + 1 if dim is not None else 0 for dim in img.header.get_dim_info())
+    dim_info = ctx.DimInfo(freq, phase, slc)
+
+    xyz, t = img.header.get_xyzt_units()
+    if t not in ('unknown', 'sec', 'msec', 'usec'):
+        # The NIfTI standard allows for 'Hz', 'ppm' and 'rads', but BIDS currently
+        # considers temporal units.
+        t = 'unknown'
+    xyzt_units = ctx.XYZTUnits(xyz, t)
+
+    nifti_header = ctx.NiftiHeader(
+        dim_info=dim_info,
+        dim=img.header['dim'],
+        pixdim=img.header['pixdim'],
+        shape=img.shape,
+        voxel_size=img.header.get_zooms(),
+        xyzt_units=xyzt_units,
+        qform_code=int(img.header['qform_code']),
+        sform_code=int(img.header['sform_code']),
+        axis_codes=nb.aff2axcodes(img.affine),
+    )
+    try:
+        mrs_header = next(ext for ext in img.header.extensions if ext.get_code() == 44)
+        nifti_header.mrs = mrs_header.json()
+    except StopIteration:
+        pass
+
+    return nifti_header
 
 
 class Subjects:
@@ -400,10 +448,11 @@ class Context:
         """Parsed contents of gzip header."""
         pass
 
-    @property
-    def nifti_header(self) -> None:
+    @cached_property
+    def nifti_header(self) -> ctx.NiftiHeader | None:
         """Parsed contents of NIfTI header referenced elsewhere in schema."""
-        pass
+        if self.extension in ('.nii', '.nii.gz'):
+            return load_nifti_header(self.file)
 
     @property
     def ome(self) -> None:

@@ -8,8 +8,8 @@ from functools import cache
 
 import attrs
 import orjson
-from bidsschematools.types import Namespace
 from bidsschematools.types import context as ctx
+from bidsschematools.types.namespace import Namespace
 from upath import UPath
 
 from .types import _typings as t

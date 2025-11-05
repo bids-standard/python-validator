@@ -12,6 +12,8 @@ import bidsschematools.schema
 import bidsschematools.utils
 import bidsschematools.validator
 
+from .types import _typings as t
+
 
 class LoggingContext:
     # From logging cookbook (CC0):
@@ -35,20 +37,31 @@ class LoggingContext:
 
     """
 
-    def __init__(self, logger, level=None, handler=None, close=True):
+    def __init__(
+        self,
+        logger: logging.Logger,
+        level: int | None = None,
+        handler: logging.Handler | None = None,
+        close: bool = True,
+    ) -> None:
         self.logger = logger
         self.level = level
         self.handler = handler
         self.close = close
 
-    def __enter__(self):
+    def __enter__(self) -> None:
         if self.level is not None:
             self.old_level = self.logger.level
             self.logger.setLevel(self.level)
         if self.handler:
             self.logger.addHandler(self.handler)
 
-    def __exit__(self, et, ev, tb):
+    def __exit__(
+        self,
+        et: type[BaseException] | None,
+        ev: BaseException | None,
+        tb: t.TracebackType,
+    ) -> None:
         if self.level is not None:
             self.logger.setLevel(self.old_level)
         if self.handler:
@@ -66,7 +79,7 @@ class BIDSValidator:
 
     regexes = None
 
-    def __init__(self, index_associated=True):
+    def __init__(self, index_associated: bool = True) -> None:
         """Initialize BIDSValidator object.
 
         Parameters
@@ -81,9 +94,9 @@ class BIDSValidator:
         self.index_associated = index_associated
 
     @classmethod
-    def _init_regexes(cls):
+    def _init_regexes(cls) -> None:
         if cls.regexes is None:
-            with LoggingContext(bst.utils.get_logger(), level=logging.WARNING):
+            with LoggingContext(bst.utils.get_logger(), level=logging.WARNING):  # type: ignore[no-untyped-call]
                 schema = bst.schema.load_schema()
 
             all_rules = chain.from_iterable(
@@ -93,7 +106,7 @@ class BIDSValidator:
             cls.regexes = [rule['regex'] for rule in all_rules]
 
     @classmethod
-    def parse(cls, path):
+    def parse(cls, path: str) -> dict[str, str]:
         """Parse a file path into a dictionary of BIDS entities.
 
         Parameters
@@ -136,6 +149,7 @@ class BIDSValidator:
         """
         if cls.regexes is None:
             cls._init_regexes()
+            assert cls.regexes is not None  # noqa: S101
 
         if path.startswith(os.sep):
             path = path.replace(os.sep, '/')
@@ -155,7 +169,7 @@ class BIDSValidator:
 
     @classmethod
     @lru_cache
-    def is_bids(cls, path):
+    def is_bids(cls, path: str) -> bool:
         """Check if file path adheres to BIDS.
 
         Main method of the validator. Uses other class methods for checking
@@ -199,14 +213,14 @@ class BIDSValidator:
             return False
 
     @classmethod
-    def is_top_level(cls, path):
+    def is_top_level(cls, path: str) -> bool:
         """Check if the file has appropriate name for a top-level file."""
         parts = cls.parse(path)
         if not parts:
             return False
         return parts.get('subject') is None
 
-    def is_associated_data(self, path):
+    def is_associated_data(self, path: str) -> bool:
         """Check if file is appropriate associated data."""
         if not self.index_associated:
             return False
@@ -217,7 +231,7 @@ class BIDSValidator:
         return parts.get('path') in ('code', 'derivatives', 'stimuli', 'sourcedata')
 
     @classmethod
-    def is_session_level(cls, path):
+    def is_session_level(cls, path: str) -> bool:
         """Check if the file has appropriate name for a session level."""
         parts = cls.parse(path)
         if not parts:
@@ -225,7 +239,7 @@ class BIDSValidator:
         return parts.get('datatype') is None and parts.get('suffix') != 'sessions'
 
     @classmethod
-    def is_subject_level(cls, path):
+    def is_subject_level(cls, path: str) -> bool:
         """Check if the file has appropriate name for a subject level."""
         parts = cls.parse(path)
         if not parts:
@@ -233,7 +247,7 @@ class BIDSValidator:
         return parts.get('suffix') == 'sessions'
 
     @classmethod
-    def is_phenotypic(cls, path):
+    def is_phenotypic(cls, path: str) -> bool:
         """Check if file is phenotypic data."""
         parts = cls.parse(path)
         if not parts:
@@ -241,7 +255,7 @@ class BIDSValidator:
         return parts.get('datatype') == 'phenotype'
 
     @classmethod
-    def is_file(cls, path):
+    def is_file(cls, path: str) -> bool:
         """Check if file is a data file or non-inherited metadata file."""
         parts = cls.parse(path)
         if not parts:

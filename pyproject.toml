@@ -155,3 +155,24 @@ test = [
 types = [
     "mypy>=1.18.2",
 ]
+
+[tool.mypy]
+exclude = [
+  "^tests/data",
+]
+
+[[tool.mypy.overrides]]
+module = 'bids_validator._version'
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = 'datalad.*'
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = 'fsspec'
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = 'upath'
+ignore_missing_imports = true

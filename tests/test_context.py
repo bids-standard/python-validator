@@ -1,27 +1,30 @@
 import json
+from collections.abc import Generator
+from pathlib import Path
 
 import fsspec
 import pytest
 from bidsschematools.types.context import Subject
+from bidsschematools.types.namespace import Namespace
 
 from bids_validator import context
 from bids_validator.types.files import FileTree
 
 
 @pytest.fixture
-def synthetic_dataset(examples):
+def synthetic_dataset(examples: Path) -> FileTree:
     return FileTree.read_from_filesystem(examples / 'synthetic')
 
 
 @pytest.fixture
-def memfs():
+def memfs() -> Generator[fsspec.AbstractFileSystem, None, None]:
     mem = fsspec.filesystem('memory')
     mem.store.clear()
     yield mem
     mem.store.clear()
 
 
-def test_load(synthetic_dataset, schema):
+def test_load(synthetic_dataset: FileTree, schema: Namespace) -> None:
     ds = context.Dataset(synthetic_dataset, schema)
 
     assert ds.dataset_description.Name.startswith('Synthetic dataset')
@@ -32,7 +35,12 @@ def test_load(synthetic_dataset, schema):
 
 
 @pytest.mark.parametrize(('depth', 'expected'), [(2, {'anat', 'beh', 'func'}), (1, set())])
-def test_find_datatypes(synthetic_dataset, schema, depth, expected):
+def test_find_datatypes(
+    synthetic_dataset: FileTree,
+    schema: Namespace,
+    depth: int,
+    expected: set[str],
+) -> None:
     datatypes = schema.objects.datatypes
 
     result = context.find_datatypes(synthetic_dataset, datatypes, max_depth=depth)
@@ -40,7 +48,7 @@ def test_find_datatypes(synthetic_dataset, schema, depth, expected):
     assert result == expected
 
 
-def test_fileparts(synthetic_dataset, schema):
+def test_fileparts(synthetic_dataset: FileTree, schema: Namespace) -> None:
     T1w = synthetic_dataset / 'sub-01' / 'ses-01' / 'anat' / 'sub-01_ses-01_T1w.nii'
     parts = context.FileParts.from_file(T1w, schema)
     assert parts == context.FileParts(
@@ -53,7 +61,7 @@ def test_fileparts(synthetic_dataset, schema):
     )
 
 
-def test_walkback(synthetic_dataset, schema):
+def test_walkback(synthetic_dataset: FileTree) -> None:
     bold = (
         synthetic_dataset
         / 'sub-01'
@@ -66,7 +74,7 @@ def test_walkback(synthetic_dataset, schema):
     assert sidecars[0] is synthetic_dataset / 'task-nback_bold.json'
 
 
-def test_context(synthetic_dataset, schema):
+def test_context(synthetic_dataset: FileTree, schema: Namespace) -> None:
     sub01 = synthetic_dataset / 'sub-01'
     T1w = sub01 / 'ses-01' / 'anat' / 'sub-01_ses-01_T1w.nii'
     bold = sub01 / 'ses-01' / 'func' / 'sub-01_ses-01_task-nback_run-01_bold.nii'
@@ -84,14 +92,18 @@ def test_context(synthetic_dataset, schema):
     assert T1w_context.extension == '.nii'
     assert T1w_context.modality == 'mri'
     assert T1w_context.size == 352
+    assert T1w_context.subject is not None
     assert isinstance(T1w_context.subject.sessions, context.Sessions)
     assert sorted(T1w_context.subject.sessions.ses_dirs) == ['ses-01', 'ses-02']
+    assert T1w_context.subject.sessions.session_id is not None
     assert sorted(T1w_context.subject.sessions.session_id) == ['ses-01', 'ses-02']
+    assert T1w_context.sidecar is not None
     assert T1w_context.sidecar == {}
     assert T1w_context.json is None
 
     bold_context = context.Context(bold, ds, subject)
 
+    assert bold_context.sidecar is not None
     assert bold_context.sidecar.to_dict() == {'TaskName': 'N-Back', 'RepetitionTime': 2.5}
     assert bold_context.json is None
 
@@ -104,17 +116,18 @@ def test_context(synthetic_dataset, schema):
     #  tiff
 
 
-def test_context_json(examples, schema):
+def test_context_json(examples: Path, schema: Namespace) -> None:
     dataset = FileTree.read_from_filesystem(examples / 'qmri_vfa')
     file = dataset / 'sub-01' / 'anat' / 'sub-01_flip-1_VFA.json'
 
     ds = context.Dataset(dataset, schema)
     file_context = context.Context(file, ds, subject=None)
 
+    assert file_context.json is not None
     assert file_context.json.to_dict() == {'FlipAngle': 3, 'RepetitionTimeExcitation': 0.0150}
 
 
-def test_sidecar_inheritance(examples):
+def test_sidecar_inheritance(examples: Path) -> None:
     """Test to ensure inheritance principle is executed correctly"""
     dataset = FileTree.read_from_filesystem(examples / 'qmri_mp2rage')
     file = dataset / 'sub-1' / 'anat' / 'sub-1_inv-2_part-mag_MP2RAGE.nii'
@@ -126,7 +139,7 @@ def test_sidecar_inheritance(examples):
     assert sidecar['RepetitionTimePreparation'] == 5.5
 
 
-def test_sidecar_order(memfs):
+def test_sidecar_order(memfs: fsspec.AbstractFileSystem) -> None:
     """Test to ensure inheritance principle is skipped when inherit=False"""
     root_json = {'rootOverwriteA': 'root', 'rootOverwriteB': 'root', 'rootValue': 'root'}
     subject_json = {'rootOverwriteA': 'subject', 'subOverwrite': 'subject', 'subValue': 'subject'}
@@ -153,16 +166,17 @@ def test_sidecar_order(memfs):
     }
 
 
-def test_sessions(synthetic_dataset):
+def test_sessions(synthetic_dataset: FileTree) -> None:
     sub01 = synthetic_dataset / 'sub-01'
 
     sessions = context.Sessions(sub01)
 
     assert sorted(sessions.ses_dirs) == ['ses-01', 'ses-02']
+    assert sessions.session_id is not None
     assert sorted(sessions.session_id) == ['ses-01', 'ses-02']
 
 
-def test_load_tsv(synthetic_dataset):
+def test_load_tsv(synthetic_dataset: FileTree) -> None:
     tsv_file_tree = synthetic_dataset / 'participants.tsv'
     tsv_file = context.load_tsv(tsv_file_tree)
 
@@ -176,7 +190,7 @@ def test_load_tsv(synthetic_dataset):
     assert [tsv_file[key] == data_set[key] for key in tsv_file.keys()]
 
 
-def test_load_tsv_gz(synthetic_dataset):
+def test_load_tsv_gz(synthetic_dataset: FileTree) -> None:
     headers = ('respiratory', 'cardiac')
     tsvgz_file_tree = (
         synthetic_dataset

@@ -158,6 +158,7 @@ types = [
 ]
 
 [tool.mypy]
+strict = true
 exclude = [
   "^tests/data",
 ]

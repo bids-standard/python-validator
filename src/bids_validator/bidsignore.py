@@ -84,7 +84,7 @@ class Ignore:
 
     def match(self, relpath: str) -> bool:
         """Match a relative path against a collection of ignore patterns."""
-        if any(compile_pat(pattern).match(relpath) for pattern in self.patterns if pattern):
+        if any(regex.match(relpath) for pat in self.patterns if (regex := compile_pat(pat))):
             self.history.append(relpath)
             return True
         return False

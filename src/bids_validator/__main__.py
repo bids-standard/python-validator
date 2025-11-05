@@ -26,7 +26,7 @@ def is_subject_dir(tree):
     return tree.name.startswith('sub-')
 
 
-def walk(tree: FileTree, dataset: Dataset, subject: Subject = None) -> Iterator[Context]:
+def walk(tree: FileTree, dataset: Dataset, subject: Subject | None = None) -> Iterator[Context]:
     """Iterate over children of a FileTree and check if they are a directory or file.
 
     If it's a directory then run again recursively, if it's a file file check the file name is

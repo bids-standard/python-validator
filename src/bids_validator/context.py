@@ -47,7 +47,7 @@ class ValidationError(Exception):
     """TODO: Add issue structure."""
 
 
-_DATATYPE_MAP = {}
+_DATATYPE_MAP: dict[str, str] = {}
 
 
 def datatype_to_modality(datatype: str, schema: Namespace) -> str:
@@ -62,6 +62,7 @@ def datatype_to_modality(datatype: str, schema: Namespace) -> str:
 @cache
 def load_tsv(file: FileTree, *, max_rows=0) -> Namespace:
     """Load TSV contents into a Namespace."""
+    fobj: t.Iterable[str]
     with file.path_obj.open() as fobj:
         if max_rows > 0:
             fobj = itertools.islice(fobj, max_rows)
@@ -74,7 +75,7 @@ def load_tsv(file: FileTree, *, max_rows=0) -> Namespace:
 def load_tsv_gz(file: FileTree, headers: tuple[str], *, max_rows=0) -> Namespace:
     """Load TSVGZ contents into a Namespace."""
     with file.path_obj.open('rb') as fobj:
-        gzobj = gzip.GzipFile(fileobj=fobj, mode='r')
+        gzobj: t.Iterable[bytes] = gzip.GzipFile(fileobj=fobj, mode='r')
         if max_rows > 0:
             gzobj = itertools.islice(gzobj, max_rows)
         contents = (line.decode().rstrip('\r\n').split('\t') for line in gzobj)
@@ -82,7 +83,7 @@ def load_tsv_gz(file: FileTree, headers: tuple[str], *, max_rows=0) -> Namespace
 
 
 @cache
-def load_json(file: FileTree) -> dict[str]:
+def load_json(file: FileTree) -> dict[str, t.Any]:
     """Load JSON file contents."""
     return orjson.loads(file.path_obj.read_bytes())
 
@@ -116,10 +117,10 @@ class Subjects:
         if 'phenotype' not in self._tree.children:
             return None
 
-        subjects = set()
-        for phenotype_file in self._tree.children['phenotype'].children:
+        subjects: set[str] = set()
+        for phenotype_file in self._tree.children['phenotype'].children.values():
             if phenotype_file.name.endswith('.tsv'):
-                subjects.update(self._get_participant_id(phenotype_file))
+                subjects.update(self._get_participant_id(phenotype_file) or [])
 
         return sorted(subjects)
 
@@ -218,7 +219,7 @@ def load_sidecar(file: FileTree) -> dict[str, t.Any]:
     # Uses walk back algorithm
     # https://bids-validator.readthedocs.io/en/latest/validation-model/inheritance-principle.html
     # Accumulates all sidecars
-    metadata = {}
+    metadata: dict[str, t.Any] = {}
 
     for json in walk_back(file, inherit=True):
         metadata = load_json(json) | metadata
@@ -232,7 +233,7 @@ def walk_back(
     target_extensions: tuple[str, ...] = ('.json',),
     target_suffix: str | None = None,
     target_entities: tuple[str, ...] = (),
-) -> Generator[FileTree] | Generator[list[FileTree, ...]]:
+) -> Generator[FileTree] | Generator[list[FileTree]]:
     """Walk up the file tree to find associated files."""
     for file_group in _walk_back(
         source, inherit, target_extensions, target_suffix, target_entities
@@ -251,7 +252,7 @@ def _walk_back(
     target_extensions: tuple[str, ...],
     target_suffix: str | None,
     target_entities: tuple[str, ...],
-) -> Generator[list[FileTree, ...]]:
+) -> Generator[list[FileTree]]:
     file_parts = FileParts.from_file(source)
 
     if target_suffix is None:
@@ -345,7 +346,7 @@ class Context:
         return self.file_parts.path
 
     @property
-    def entities(self) -> dict[str, str] | None:
+    def entities(self) -> dict[str, str | None]:
         """Entities parsed from the current filename."""
         return self.file_parts.entities
 
@@ -367,7 +368,9 @@ class Context:
     @property
     def modality(self) -> str | None:
         """Modality of current file, for examples, MRI."""
-        return datatype_to_modality(self.file_parts.datatype, self.schema)
+        if (datatype := self.file_parts.datatype) is not None:
+            return datatype_to_modality(datatype, self.schema)
+        return None
 
     @property
     def size(self) -> int:
@@ -380,12 +383,14 @@ class Context:
         return ctx.Associations()
 
     @property
-    def columns(self) -> None:
+    def columns(self) -> Namespace | None:
         """TSV columns, indexed by column header, values are arrays with column contents."""
         if self.extension == '.tsv':
             return load_tsv(self.file)
         elif self.extension == '.tsv.gz':
-            return load_tsv_gz(self.file, tuple(self.sidecar.Columns))
+            columns = tuple(self.sidecar.Columns) if self.sidecar else ()
+            return load_tsv_gz(self.file, columns)
+        return None
 
     @property
     def json(self) -> Namespace | None:

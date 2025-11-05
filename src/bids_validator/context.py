@@ -196,13 +196,12 @@ class Association:
         return self._file.relative_path
 
 
-def load_file(file: FileTree, dataset: proto.Dataset) -> ctx.Context:
+def load_file(file: FileTree, dataset: proto.Dataset) -> None:  # -> ctx.Context:
     """Load a full context for a given file."""
-    associations = load_associations(file, dataset)
-    _ = associations
+    # associations = load_associations(file, dataset)
 
 
-def load_associations(file: FileTree, dataset: proto.Dataset) -> ctx.Associations:
+def load_associations(file: FileTree, dataset: proto.Dataset) -> None:  # -> ctx.Associations:
     """Load all associations for a given file."""
     # If something fails, return None.
     # Uses walk back algorithm
@@ -210,7 +209,7 @@ def load_associations(file: FileTree, dataset: proto.Dataset) -> ctx.Association
     # Stops on first success
 
 
-def load_events(file: FileTree) -> ctx.Events:
+def load_events(file: FileTree) -> None:  # -> ctx.Events:
     """Load events.tsv file."""
 
 

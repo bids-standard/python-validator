@@ -4,7 +4,6 @@ import os
 from pathlib import Path
 
 import pytest
-from acres import typ as at
 from bidsschematools.schema import load_schema
 from bidsschematools.types import Namespace
 
@@ -12,7 +11,7 @@ from .data import load_data
 
 
 @pytest.fixture(scope='session')
-def examples() -> at.Traversable:
+def examples() -> Path:
     """Get bids-examples from submodule, allow environment variable override."""
     ret = os.getenv('BIDS_EXAMPLES')
     if not ret:

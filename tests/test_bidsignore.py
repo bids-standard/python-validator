@@ -1,5 +1,6 @@
 """Test bids_validator.bidsignore."""
 
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -43,16 +44,17 @@ from bids_validator.types.files import FileTree
         (r'\!*', ['!', '!foo'], ['foo', 'bar!']),
     ],
 )
-def test_patterns(pattern, hits, misses):
+def test_patterns(pattern: str, hits: list[str], misses: list[str]) -> None:
     """Test expected hits and misses of ignore patterns."""
     regex = compile_pat(pattern)
+    assert regex is not None
     for fname in hits:
         assert regex.match(fname), f'"{fname}" should match "{pattern}"'
     for fname in misses:
         assert not regex.match(fname), f'"{fname}" should not match "{pattern}"'
 
 
-def test_skipped_patterns():
+def test_skipped_patterns() -> None:
     """Test ignore patterns that should match nothing."""
     assert compile_pat('') is None
     assert compile_pat('# commented line') is None
@@ -61,7 +63,7 @@ def test_skipped_patterns():
         compile_pat('!inverted pattern')
 
 
-def test_Ignore_ds000117(examples):
+def test_Ignore_ds000117(examples: Path) -> None:
     """Test that we can load a .bidsignore file and match a file."""
     ds000117 = FileTree.read_from_filesystem(examples / 'ds000117')
     ignore = Ignore.from_file(ds000117.children['.bidsignore'])
@@ -78,7 +80,7 @@ def test_Ignore_ds000117(examples):
     assert ignore.match(flash_file.relative_path)
 
 
-def test_filter_file_tree(examples):
+def test_filter_file_tree(examples: Path) -> None:
     """Test file tree filtering with .bidsignore."""
     ds000117 = FileTree.read_from_filesystem(examples / 'ds000117')
     assert '.bidsignore' in ds000117
@@ -95,7 +97,7 @@ def test_filter_file_tree(examples):
     assert filtered is ds000247
 
 
-def _walk(tree: FileTree):
+def _walk(tree: FileTree) -> Iterator[FileTree]:
     for child in tree.children.values():
         if child.is_dir:
             yield from _walk(child)
@@ -103,7 +105,7 @@ def _walk(tree: FileTree):
             yield child
 
 
-def test_gitignore_battery(gitignore_test):
+def test_gitignore_battery(gitignore_test: Path) -> None:
     """Test our implementation against a gitignore battery."""
     filetree = FileTree.read_from_filesystem(gitignore_test)
     ignore = Ignore.from_file(filetree.children['.gitignore'])

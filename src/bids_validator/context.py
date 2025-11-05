@@ -221,7 +221,8 @@ def load_sidecar(file: FileTree) -> dict[str, t.Any]:
     metadata: dict[str, t.Any] = {}
 
     for json in walk_back(file, inherit=True):
-        metadata = load_json(json) | metadata
+        # May need to overload walk_back
+        metadata = load_json(json) | metadata  # type: ignore[arg-type]
 
     return metadata
 

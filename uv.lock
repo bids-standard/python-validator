@@ -42,6 +42,7 @@ wheels = [
 name = "bids-validator"
 source = { editable = "." }
 dependencies = [
+    { name = "acres" },
     { name = "attrs" },
     { name = "bidsschematools" },
     { name = "orjson" },
@@ -67,6 +68,7 @@ types = [
 
 [package.metadata]
 requires-dist = [
+    { name = "acres", specifier = ">=0.5" },
     { name = "attrs", specifier = ">=24.1" },
     { name = "bidsschematools", specifier = ">=1.1" },
     { name = "orjson", specifier = ">=3.11.3" },

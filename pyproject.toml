@@ -24,6 +24,7 @@ requires-python = ">=3.10"
 dependencies = [
     "attrs >=24.1",
     "bidsschematools >=1.1",
+    "nibabel>=5.1.1",
     "orjson>=3.11.3",
     "universal_pathlib >=0.2.1",
 ]
@@ -145,6 +146,9 @@ inline-quotes = "single"
 quote-style = "single"
 
 [dependency-groups]
+dev = [
+    "ipython>=8.37.0",
+]
 test = [
   "pytest >=8",
   "pytest-cov >=5",

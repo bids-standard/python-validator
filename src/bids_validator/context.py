@@ -60,7 +60,7 @@ def datatype_to_modality(datatype: str, schema: Namespace) -> str:
 
 
 @cache
-def load_tsv(file: FileTree, *, max_rows=0) -> Namespace:
+def load_tsv(file: FileTree, *, max_rows: int = 0) -> Namespace:
     """Load TSV contents into a Namespace."""
     fobj: t.Iterable[str]
     with file.path_obj.open() as fobj:
@@ -68,24 +68,24 @@ def load_tsv(file: FileTree, *, max_rows=0) -> Namespace:
             fobj = itertools.islice(fobj, max_rows)
         contents = (line.rstrip('\r\n').split('\t') for line in fobj)
         # Extract headers then transpose rows to columns
-        return Namespace(zip(next(contents), zip(*contents, strict=False), strict=False))
+        return Namespace(zip(next(contents), zip(*contents, strict=False), strict=False))  # type: ignore[no-untyped-call]
 
 
 @cache
-def load_tsv_gz(file: FileTree, headers: tuple[str], *, max_rows=0) -> Namespace:
+def load_tsv_gz(file: FileTree, headers: tuple[str], *, max_rows: int = 0) -> Namespace:
     """Load TSVGZ contents into a Namespace."""
     with file.path_obj.open('rb') as fobj:
         gzobj: t.Iterable[bytes] = gzip.GzipFile(fileobj=fobj, mode='r')
         if max_rows > 0:
             gzobj = itertools.islice(gzobj, max_rows)
         contents = (line.decode().rstrip('\r\n').split('\t') for line in gzobj)
-        return Namespace(zip(headers, zip(*contents, strict=False), strict=False))
+        return Namespace(zip(headers, zip(*contents, strict=False), strict=False))  # type: ignore[no-untyped-call]
 
 
 @cache
 def load_json(file: FileTree) -> dict[str, t.Any]:
     """Load JSON file contents."""
-    return orjson.loads(file.path_obj.read_bytes())
+    return orjson.loads(file.path_obj.read_bytes())  # type: ignore[no-any-return]
 
 
 class Subjects:
@@ -141,13 +141,13 @@ class Dataset:
     ignored: list[str] = attrs.field(factory=list)
     subjects: Subjects = attrs.field(init=False)
 
-    def __attrs_post_init__(self):
+    def __attrs_post_init__(self) -> None:
         self.subjects = Subjects(self.tree)
 
     @cached_property
     def dataset_description(self) -> Namespace:
         """Contents of '/dataset_description.json'."""
-        return Namespace.from_json(
+        return Namespace.from_json(  # type: ignore[no-any-return]
             UPath(self.tree.children['dataset_description.json']).read_text()
         )
 
@@ -191,7 +191,7 @@ class Association:
     _file: FileTree
 
     @property
-    def path(self):
+    def path(self) -> str:
         """Dataset-relative path of the associated file."""
         return self._file.relative_path
 
@@ -332,7 +332,7 @@ class Context:
     subject: ctx.Subject | None
     file_parts: FileParts = attrs.field(init=False)
 
-    def __attrs_post_init__(self):
+    def __attrs_post_init__(self) -> None:
         self.file_parts = FileParts.from_file(self.file, self.schema)
 
     @property
@@ -396,7 +396,7 @@ class Context:
     def json(self) -> Namespace | None:
         """Contents of the current JSON file."""
         if self.file_parts.extension == '.json':
-            return Namespace.build(load_json(self.file))
+            return Namespace(load_json(self.file))  # type: ignore[no-untyped-call]
 
         return None
 
@@ -425,7 +425,7 @@ class Context:
         """Sidecar metadata constructed via the inheritance principle."""
         sidecar = load_sidecar(self.file) or {}
 
-        return Namespace.build(sidecar)
+        return Namespace(sidecar)  # type: ignore[no-untyped-call]
 
 
 class Sessions:

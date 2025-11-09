@@ -7,11 +7,12 @@ from typing import Protocol
 
 import attrs
 
+from .types import _typings as t
 from .types.files import FileTree
 
 
 @lru_cache
-def compile_pat(pattern: str) -> re.Pattern | None:
+def compile_pat(pattern: str) -> re.Pattern[str] | None:
     """Compile .gitignore-style ignore lines to regular expressions."""
     orig = pattern
     # A line starting with # serves as a comment.
@@ -77,7 +78,7 @@ class Ignore:
     history: list[str] = attrs.field(factory=list, init=False)
 
     @classmethod
-    def from_file(cls, pathlike: os.PathLike):
+    def from_file(cls, pathlike: str | os.PathLike[str]) -> t.Self:
         """Load Ignore contents from file."""
         with open(pathlike) as fobj:
             return cls([line.rstrip('\n') for line in fobj])

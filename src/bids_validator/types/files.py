@@ -56,10 +56,10 @@ class FileTree:
         child = self.children.get(parts[0])
         return bool(child and (len(parts) == 1 or posixpath.join(*parts[1:]) in child))
 
-    def __fspath__(self):
-        return self.path_obj.__fspath__()
+    def __fspath__(self) -> str:
+        return str(self.path_obj)
 
-    def __truediv__(self, relpath: str | os.PathLike) -> FileTree:
+    def __truediv__(self, relpath: str | os.PathLike[str]) -> FileTree:
         parts = Path(relpath).parts
         child = self
         for part in parts:

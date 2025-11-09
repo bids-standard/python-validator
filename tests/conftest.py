@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 from bidsschematools.schema import load_schema
-from bidsschematools.types import Namespace
+from bidsschematools.types.namespace import Namespace
 
 from .data import load_data
 
@@ -37,4 +37,4 @@ def gitignore_test() -> Path:
 @pytest.fixture(scope='session')
 def schema() -> Namespace:
     """Load BIDS schema for tests."""
-    return load_schema()
+    return load_schema()  # type: ignore[no-any-return]

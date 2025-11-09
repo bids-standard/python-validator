@@ -1,5 +1,7 @@
 """Utilities for working with .bidsignore files."""
 
+from __future__ import annotations
+
 import os
 import re
 from functools import lru_cache
@@ -7,11 +9,12 @@ from typing import Protocol
 
 import attrs
 
+from .types import _typings as t
 from .types.files import FileTree
 
 
 @lru_cache
-def compile_pat(pattern: str) -> re.Pattern | None:
+def compile_pat(pattern: str) -> re.Pattern[str] | None:
     """Compile .gitignore-style ignore lines to regular expressions."""
     orig = pattern
     # A line starting with # serves as a comment.
@@ -77,14 +80,14 @@ class Ignore:
     history: list[str] = attrs.field(factory=list, init=False)
 
     @classmethod
-    def from_file(cls, pathlike: os.PathLike):
+    def from_file(cls, pathlike: str | os.PathLike[str]) -> t.Self:
         """Load Ignore contents from file."""
         with open(pathlike) as fobj:
             return cls([line.rstrip('\n') for line in fobj])
 
     def match(self, relpath: str) -> bool:
         """Match a relative path against a collection of ignore patterns."""
-        if any(compile_pat(pattern).match(relpath) for pattern in self.patterns if pattern):
+        if any(regex.match(relpath) for pat in self.patterns if (regex := compile_pat(pat))):
             self.history.append(relpath)
             return True
         return False

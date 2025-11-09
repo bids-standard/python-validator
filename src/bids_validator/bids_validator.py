@@ -1,5 +1,7 @@
 """Validation class for BIDS projects."""
 
+from __future__ import annotations
+
 import logging
 import os
 import re

@@ -1,5 +1,7 @@
 """Utilities for working with .bidsignore files."""
 
+from __future__ import annotations
+
 import os
 import re
 from functools import lru_cache

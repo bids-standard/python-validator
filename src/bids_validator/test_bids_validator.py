@@ -15,13 +15,13 @@ from bids_validator import BIDSValidator
 HOME = os.path.expanduser('~')
 
 TEST_DATA_DICT = {
-    'eeg_matchingpennies': ('https://gin.g-node.org/sappelhoff/eeg_matchingpennies'),
+    'eeg_matchingpennies': 'https://gin.g-node.org/sappelhoff/eeg_matchingpennies',
 }
 
 EXCLUDE_KEYWORDS = ['git', 'datalad', 'sourcedata', 'bidsignore']
 
 
-def _download_test_data(test_data_dict, dsname):
+def _download_test_data(test_data_dict: dict[str, str], dsname: str) -> str:
     """Download test data using datalad."""
     url = test_data_dict[dsname]
     dspath = os.path.join(HOME, dsname)
@@ -29,7 +29,7 @@ def _download_test_data(test_data_dict, dsname):
     return dspath
 
 
-def _gather_test_files(dspath, exclude_keywords):
+def _gather_test_files(dspath: str, exclude_keywords: list[str]) -> list[str]:
     """Get test files from dataset path, relative to dataset."""
     files = []
     for r, _, f in os.walk(dspath):
@@ -47,14 +47,14 @@ files = _gather_test_files(dspath, EXCLUDE_KEYWORDS)
 
 
 @pytest.fixture(scope='module')
-def validator():
+def validator() -> BIDSValidator:
     """Return a BIDSValidator instance."""
     validator = BIDSValidator()
     return validator
 
 
 @pytest.mark.parametrize('fname', files)
-def test_datasets(validator, fname):
+def test_datasets(validator: BIDSValidator, fname: str) -> None:
     """Test that is_bids returns true for each file in a valid BIDS dataset."""
     assert validator.is_bids(fname)
 
@@ -72,7 +72,7 @@ def test_datasets(validator, fname):
         '/participants.json',
     ],
 )
-def test_is_top_level(validator, fname):
+def test_is_top_level(validator: BIDSValidator, fname: str) -> None:
     """Test that is_top_level returns true for top-level files."""
     assert validator.is_bids(fname)
     assert validator.is_top_level(fname)
@@ -86,7 +86,7 @@ def test_is_top_level(validator, fname):
         '/CANGES',  # typo
     ],
 )
-def test_is_not_top_level(validator, fname):
+def test_is_not_top_level(validator: BIDSValidator, fname: str) -> None:
     """Test that is_top_level returns false for non top-level files."""
     assert not validator.is_top_level(fname)
 
@@ -105,7 +105,7 @@ def test_is_not_top_level(validator, fname):
         '/stimuli/pic.jpg',
     ],
 )
-def test_is_associated_data(validator, fname):
+def test_is_associated_data(validator: BIDSValidator, fname: str) -> None:
     """Test that is_associated_data returns true for associated data."""
     assert validator.is_bids(fname)
     assert validator.is_associated_data(fname)
@@ -122,7 +122,7 @@ def test_is_associated_data(validator, fname):
         '/.git/',
     ],
 )
-def test_is_not_associated_data(validator, fname):
+def test_is_not_associated_data(validator: BIDSValidator, fname: str) -> None:
     """Test that is_associated_data returns false for associated data."""
     assert not validator.is_associated_data(fname)
 
@@ -180,7 +180,7 @@ def test_is_not_associated_data(validator, fname):
         '/sub-01/ses-test/sub-01_ses-test_acq-singleband_run-01_dwi.json',
     ],
 )
-def test_is_session_level(validator, fname):
+def test_is_session_level(validator: BIDSValidator, fname: str) -> None:
     """Test that is_session_level returns true for session level files."""
     assert validator.is_bids(fname)
     assert validator.is_session_level(fname)
@@ -223,7 +223,7 @@ def test_is_session_level(validator, fname):
         '/ses-test/sub-01_ses-test_acq-singleband_run-01_dwi.json',  # sub id dir missed
     ],
 )
-def test_is_not_session_level(validator, fname):
+def test_is_not_session_level(validator: BIDSValidator, fname: str) -> None:
     """Test that is_session_level returns false for non session level files."""
     assert not validator.is_session_level(fname)
 
@@ -235,7 +235,7 @@ def test_is_not_session_level(validator, fname):
         '/sub-01/sub-01_sessions.json',
     ],
 )
-def test_is_subject_level(validator, fname):
+def test_is_subject_level(validator: BIDSValidator, fname: str) -> None:
     """Test that is_subject_level returns true for subject level files."""
     assert validator.is_bids(fname)
     assert validator.is_subject_level(fname)
@@ -252,7 +252,7 @@ def test_is_subject_level(validator, fname):
         '/sub-01/sub-01_sessions.jon',  # wrong extension
     ],
 )
-def test_is_not_subject_level(validator, fname):
+def test_is_not_subject_level(validator: BIDSValidator, fname: str) -> None:
     """Test that is_subject_level returns false for non subject level files."""
     assert not validator.is_subject_level(fname)
 
@@ -264,7 +264,7 @@ def test_is_not_subject_level(validator, fname):
         '/phenotype/measure.json',
     ],
 )
-def test_is_phenotypic(validator, fname):
+def test_is_phenotypic(validator: BIDSValidator, fname: str) -> None:
     """Test that is_phenotypic returns true for phenotypic files."""
     assert validator.is_bids(fname)
     assert validator.is_phenotypic(fname)
@@ -279,7 +279,7 @@ def test_is_phenotypic(validator, fname):
         '/phenotype/measurement_tool_name.jsn',  # wrong extension
     ],
 )
-def test_is_not_phenotypic(validator, fname):
+def test_is_not_phenotypic(validator: BIDSValidator, fname: str) -> None:
     """Test that is_phenotypic returns false for non phenotypic files."""
     assert not validator.is_phenotypic(fname)
 
@@ -291,7 +291,7 @@ def test_is_not_phenotypic(validator, fname):
         '/sub-01/anat/sub-01_T1w.nii.gz',
     ],
 )
-def test_is_file(validator, fname):
+def test_is_file(validator: BIDSValidator, fname: str) -> None:
     """Test that is_file returns true for file level files."""
     assert validator.is_bids(fname)
     assert validator.is_file(fname)
@@ -329,7 +329,7 @@ def test_is_file(validator, fname):
         '/sub-01/ses-test/anat/sub-01_ses-test_acq-23_T1w.exe',
     ],
 )
-def test_is_anat_false(validator, fname):
+def test_is_anat_false(validator: BIDSValidator, fname: str) -> None:
     """Test that is_bids returns False for invalid anat files."""
     assert not validator.is_bids(fname)
 
@@ -369,7 +369,7 @@ def test_is_anat_false(validator, fname):
         '/ses-test/dwi/sub-01_ses-test_acq-singleband_run-01_dwi.json',
     ],
 )
-def test_is_dwi_false(validator, fname):
+def test_is_dwi_false(validator: BIDSValidator, fname: str) -> None:
     """Test that is_bids returns False for invalid dwi files."""
     assert not validator.is_bids(fname)
 
@@ -405,7 +405,7 @@ def test_is_dwi_false(validator, fname):
         '/ses-test/func/sub-01_ses-test_task-task_rec-rec_run-01_defacemask.nii',
     ],
 )
-def test_is_func_false(validator, fname):
+def test_is_func_false(validator: BIDSValidator, fname: str) -> None:
     """Test that is_bids returns False for invalid dwi files."""
     assert not validator.is_bids(fname)
 
@@ -431,7 +431,7 @@ def test_is_func_false(validator, fname):
         '/sub-01/ses-test/dwi/sub-01_ses-test_task-coding_acq-23_run-23_sbref.nii.gz',  # dwi
     ],
 )
-def test_is_func_bold_false(validator, fname):
+def test_is_func_bold_false(validator: BIDSValidator, fname: str) -> None:
     """Test that is_bids returns False for invalid dwi files."""
     assert not validator.is_bids(fname)
 
@@ -455,7 +455,7 @@ def test_is_func_bold_false(validator, fname):
         '/ses-test/beh/sub-01_ses-test_task-task_stim.tsv.gz',  # missed subject id dir
     ],
 )
-def test_is_behavioral_false(validator, fname):
+def test_is_behavioral_false(validator: BIDSValidator, fname: str) -> None:
     """Test that is_bids returns False for invalid dwi files."""
     assert not validator.is_bids(fname)
 
@@ -487,7 +487,7 @@ def test_is_behavioral_false(validator, fname):
         '/ses-test/beh/sub-01_ses-test_task-nback_recording-saturation_stim.json',
     ],
 )
-def test_is_cont_false(validator, fname):
+def test_is_cont_false(validator: BIDSValidator, fname: str) -> None:
     """Test that is_bids returns False for invalid dwi files."""
     assert not validator.is_bids(fname)
 
@@ -527,6 +527,6 @@ def test_is_cont_false(validator, fname):
         '/ses-test/fmap/sub-01_ses-test_acq-singleband_dir-dirlabel_run-01_epi.nii',
     ],
 )
-def test_is_field_map_false(validator, fname):
+def test_is_field_map_false(validator: BIDSValidator, fname: str) -> None:
     """Test that is_bids returns False for invalid dwi files."""
     assert not validator.is_bids(fname)

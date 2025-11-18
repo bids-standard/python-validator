@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        check: ['style', 'spellcheck']
+        check: ['style', 'spellcheck', 'type']
 
     steps:
       - uses: actions/checkout@v5

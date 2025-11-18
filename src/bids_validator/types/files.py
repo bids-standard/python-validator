@@ -24,7 +24,7 @@ class FileTree:
     parent: FileTree | None = attrs.field(repr=False, default=None, eq=False)
     children: dict[str, FileTree] = attrs.field(repr=False, factory=dict, eq=False)
 
-    def __attrs_post_init__(self):
+    def __attrs_post_init__(self) -> None:
         if self.is_dir is None:
             object.__setattr__(self, 'is_dir', self.path_obj.is_dir())
         object.__setattr__(
@@ -34,32 +34,32 @@ class FileTree:
         )
 
     @classmethod
-    def read_from_filesystem(cls, path_obj: os.PathLike) -> t.Self:
+    def read_from_filesystem(cls, path_obj: str | os.PathLike[str] | UPath) -> t.Self:
         """Read a FileTree from the filesystem."""
-        path_obj = UPath(path_obj)
+        upath_obj = UPath(path_obj)
         children = {}
-        if is_dir := path_obj.is_dir():
+        if is_dir := upath_obj.is_dir():
             children = {
-                entry.name: FileTree.read_from_filesystem(entry) for entry in path_obj.iterdir()
+                entry.name: FileTree.read_from_filesystem(entry) for entry in upath_obj.iterdir()
             }
-        return cls(path_obj, is_dir=is_dir, children=children)
+        return cls(upath_obj, is_dir=is_dir, children=children)
 
     @property
-    def name(self) -> bool:
+    def name(self) -> str:
         """The name of the current FileTree node."""
         return self.path_obj.name
 
-    def __contains__(self, relpath: os.PathLike) -> bool:
+    def __contains__(self, relpath: str | os.PathLike[str]) -> bool:
         parts = Path(relpath).parts
         if len(parts) == 0:
             return False
-        child = self.children.get(parts[0], False)
-        return child and (len(parts) == 1 or posixpath.join(*parts[1:]) in child)
+        child = self.children.get(parts[0])
+        return bool(child and (len(parts) == 1 or posixpath.join(*parts[1:]) in child))
 
-    def __fspath__(self):
-        return self.path_obj.__fspath__()
+    def __fspath__(self) -> str:
+        return str(self.path_obj)
 
-    def __truediv__(self, relpath: str | os.PathLike) -> t.Self:
+    def __truediv__(self, relpath: str | os.PathLike[str]) -> FileTree:
         parts = Path(relpath).parts
         child = self
         for part in parts:

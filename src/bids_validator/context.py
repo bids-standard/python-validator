@@ -7,9 +7,10 @@ import itertools
 from functools import cache
 
 import attrs
+import nibabel as nb
 import orjson
-from bidsschematools.types import Namespace
 from bidsschematools.types import context as ctx
+from bidsschematools.types.namespace import Namespace
 from upath import UPath
 
 from .types import _typings as t
@@ -18,11 +19,14 @@ from .types.files import FileTree
 TYPE_CHECKING = False
 if TYPE_CHECKING:
     from collections.abc import Generator
+    from typing import TypeVar
 
     from bidsschematools.types import protocols as proto
 
     # pyright does not treat cached_property like property
     cached_property = property
+
+    ImgT = TypeVar('ImgT', bound=nb.filebasedimages.FileBasedImage)
 else:
     from functools import cached_property
 
@@ -47,7 +51,7 @@ class ValidationError(Exception):
     """TODO: Add issue structure."""
 
 
-_DATATYPE_MAP = {}
+_DATATYPE_MAP: dict[str, str] = {}
 
 
 def datatype_to_modality(datatype: str, schema: Namespace) -> str:
@@ -60,8 +64,9 @@ def datatype_to_modality(datatype: str, schema: Namespace) -> str:
 
 
 @cache
-def load_tsv(file: FileTree, *, max_rows=0) -> Namespace:
+def load_tsv(file: FileTree, *, max_rows: int = 0) -> Namespace:
     """Load TSV contents into a Namespace."""
+    fobj: t.Iterable[str]
     with file.path_obj.open() as fobj:
         if max_rows > 0:
             fobj = itertools.islice(fobj, max_rows)
@@ -71,10 +76,10 @@ def load_tsv(file: FileTree, *, max_rows=0) -> Namespace:
 
 
 @cache
-def load_tsv_gz(file: FileTree, headers: tuple[str], *, max_rows=0) -> Namespace:
+def load_tsv_gz(file: FileTree, headers: tuple[str], *, max_rows: int = 0) -> Namespace:
     """Load TSVGZ contents into a Namespace."""
     with file.path_obj.open('rb') as fobj:
-        gzobj = gzip.GzipFile(fileobj=fobj, mode='r')
+        gzobj: t.Iterable[bytes] = gzip.GzipFile(fileobj=fobj, mode='r')
         if max_rows > 0:
             gzobj = itertools.islice(gzobj, max_rows)
         contents = (line.decode().rstrip('\r\n').split('\t') for line in gzobj)
@@ -82,9 +87,55 @@ def load_tsv_gz(file: FileTree, headers: tuple[str], *, max_rows=0) -> Namespace
 
 
 @cache
-def load_json(file: FileTree) -> dict[str]:
+def load_json(file: FileTree) -> dict[str, t.Any]:
     """Load JSON file contents."""
-    return orjson.loads(file.path_obj.read_bytes())
+    return orjson.loads(file.path_obj.read_bytes())  # type: ignore[no-any-return]
+
+
+def load_image(path: UPath, api: type[ImgT]) -> ImgT:
+    """Load neuroimaging file with a given nibabel API."""
+    img = nb.loadsave.load(path)  # type: ignore[arg-type]
+    if not isinstance(img, api):
+        raise ValueError(f'Expected image of type {api}, got {type(img)}')
+    return img
+
+
+def load_nifti_header(file: FileTree) -> ctx.NiftiHeader:
+    """Load NIfTI header contents."""
+    img = load_image(file.path_obj, nb.nifti1.Nifti1Image)
+
+    # Nibabel uses None,0,1,2, BIDS context uses 1,2,3 with 0 as absent
+    freq, phase, slc = (
+        dim + 1 if dim is not None else 0
+        for dim in img.header.get_dim_info()  # type: ignore[no-untyped-call]
+    )
+    dim_info = ctx.DimInfo(freq, phase, slc)
+
+    xyz, t = img.header.get_xyzt_units()  # type: ignore[no-untyped-call]
+    if t not in ('unknown', 'sec', 'msec', 'usec'):
+        # The NIfTI standard allows for 'Hz', 'ppm' and 'rads', but BIDS currently
+        # considers temporal units.
+        t = 'unknown'
+    xyzt_units = ctx.XyztUnits(xyz, t)
+
+    nifti_header = ctx.NiftiHeader(
+        dim_info=dim_info,
+        dim=img.header['dim'],
+        pixdim=img.header['pixdim'],
+        shape=img.shape,
+        voxel_sizes=img.header.get_zooms(),  # type: ignore[no-untyped-call]
+        xyzt_units=xyzt_units,
+        qform_code=int(img.header['qform_code']),
+        sform_code=int(img.header['sform_code']),
+        axis_codes=nb.orientations.aff2axcodes(img.affine),  # type: ignore[no-untyped-call]
+    )
+    try:
+        mrs_header = next(ext for ext in img.header.extensions if ext.get_code() == 44)
+        nifti_header.mrs = mrs_header.json()
+    except StopIteration:
+        pass
+
+    return nifti_header
 
 
 class Subjects:
@@ -116,10 +167,10 @@ class Subjects:
         if 'phenotype' not in self._tree.children:
             return None
 
-        subjects = set()
-        for phenotype_file in self._tree.children['phenotype'].children:
+        subjects: set[str] = set()
+        for phenotype_file in self._tree.children['phenotype'].children.values():
             if phenotype_file.name.endswith('.tsv'):
-                subjects.update(self._get_participant_id(phenotype_file))
+                subjects.update(self._get_participant_id(phenotype_file) or [])
 
         return sorted(subjects)
 
@@ -140,7 +191,7 @@ class Dataset:
     ignored: list[str] = attrs.field(factory=list)
     subjects: Subjects = attrs.field(init=False)
 
-    def __attrs_post_init__(self):
+    def __attrs_post_init__(self) -> None:
         self.subjects = Subjects(self.tree)
 
     @cached_property
@@ -190,18 +241,17 @@ class Association:
     _file: FileTree
 
     @property
-    def path(self):
+    def path(self) -> str:
         """Dataset-relative path of the associated file."""
         return self._file.relative_path
 
 
-def load_file(file: FileTree, dataset: proto.Dataset) -> ctx.Context:
+def load_file(file: FileTree, dataset: proto.Dataset) -> None:  # -> ctx.Context:
     """Load a full context for a given file."""
-    associations = load_associations(file, dataset)
-    _ = associations
+    # associations = load_associations(file, dataset)
 
 
-def load_associations(file: FileTree, dataset: proto.Dataset) -> ctx.Associations:
+def load_associations(file: FileTree, dataset: proto.Dataset) -> None:  # -> ctx.Associations:
     """Load all associations for a given file."""
     # If something fails, return None.
     # Uses walk back algorithm
@@ -209,7 +259,7 @@ def load_associations(file: FileTree, dataset: proto.Dataset) -> ctx.Association
     # Stops on first success
 
 
-def load_events(file: FileTree) -> ctx.Events:
+def load_events(file: FileTree) -> None:  # -> ctx.Events:
     """Load events.tsv file."""
 
 
@@ -218,10 +268,11 @@ def load_sidecar(file: FileTree) -> dict[str, t.Any]:
     # Uses walk back algorithm
     # https://bids-validator.readthedocs.io/en/latest/validation-model/inheritance-principle.html
     # Accumulates all sidecars
-    metadata = {}
+    metadata: dict[str, t.Any] = {}
 
     for json in walk_back(file, inherit=True):
-        metadata = load_json(json) | metadata
+        # May need to overload walk_back
+        metadata = load_json(json) | metadata  # type: ignore[arg-type]
 
     return metadata
 
@@ -232,7 +283,7 @@ def walk_back(
     target_extensions: tuple[str, ...] = ('.json',),
     target_suffix: str | None = None,
     target_entities: tuple[str, ...] = (),
-) -> Generator[FileTree] | Generator[list[FileTree, ...]]:
+) -> Generator[FileTree] | Generator[list[FileTree]]:
     """Walk up the file tree to find associated files."""
     for file_group in _walk_back(
         source, inherit, target_extensions, target_suffix, target_entities
@@ -251,7 +302,7 @@ def _walk_back(
     target_extensions: tuple[str, ...],
     target_suffix: str | None,
     target_entities: tuple[str, ...],
-) -> Generator[list[FileTree, ...]]:
+) -> Generator[list[FileTree]]:
     file_parts = FileParts.from_file(source)
 
     if target_suffix is None:
@@ -331,7 +382,7 @@ class Context:
     subject: ctx.Subject | None
     file_parts: FileParts = attrs.field(init=False)
 
-    def __attrs_post_init__(self):
+    def __attrs_post_init__(self) -> None:
         self.file_parts = FileParts.from_file(self.file, self.schema)
 
     @property
@@ -345,7 +396,7 @@ class Context:
         return self.file_parts.path
 
     @property
-    def entities(self) -> dict[str, str] | None:
+    def entities(self) -> dict[str, str | None]:
         """Entities parsed from the current filename."""
         return self.file_parts.entities
 
@@ -367,7 +418,9 @@ class Context:
     @property
     def modality(self) -> str | None:
         """Modality of current file, for examples, MRI."""
-        return datatype_to_modality(self.file_parts.datatype, self.schema)
+        if (datatype := self.file_parts.datatype) is not None:
+            return datatype_to_modality(datatype, self.schema)
+        return None
 
     @property
     def size(self) -> int:
@@ -380,18 +433,20 @@ class Context:
         return ctx.Associations()
 
     @property
-    def columns(self) -> None:
+    def columns(self) -> Namespace | None:
         """TSV columns, indexed by column header, values are arrays with column contents."""
         if self.extension == '.tsv':
             return load_tsv(self.file)
         elif self.extension == '.tsv.gz':
-            return load_tsv_gz(self.file, tuple(self.sidecar.Columns))
+            columns = tuple(self.sidecar.Columns) if self.sidecar else ()
+            return load_tsv_gz(self.file, columns)
+        return None
 
     @property
     def json(self) -> Namespace | None:
         """Contents of the current JSON file."""
         if self.file_parts.extension == '.json':
-            return Namespace.build(load_json(self.file))
+            return Namespace(load_json(self.file))
 
         return None
 
@@ -400,10 +455,12 @@ class Context:
         """Parsed contents of gzip header."""
         pass
 
-    @property
-    def nifti_header(self) -> None:
+    @cached_property
+    def nifti_header(self) -> ctx.NiftiHeader | None:
         """Parsed contents of NIfTI header referenced elsewhere in schema."""
-        pass
+        if self.extension in ('.nii', '.nii.gz'):
+            return load_nifti_header(self.file)
+        return None
 
     @property
     def ome(self) -> None:
@@ -420,7 +477,7 @@ class Context:
         """Sidecar metadata constructed via the inheritance principle."""
         sidecar = load_sidecar(self.file) or {}
 
-        return Namespace.build(sidecar)
+        return Namespace(sidecar)
 
 
 class Sessions:

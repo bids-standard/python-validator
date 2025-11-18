@@ -98,7 +98,7 @@ class BIDSValidator:
     @classmethod
     def _init_regexes(cls) -> None:
         if cls.regexes is None:
-            with LoggingContext(bst.utils.get_logger(), level=logging.WARNING):  # type: ignore[no-untyped-call]
+            with LoggingContext(bst.utils.get_logger(), level=logging.WARNING):
                 schema = bst.schema.load_schema()
 
             all_rules = chain.from_iterable(

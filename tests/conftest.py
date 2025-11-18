@@ -37,4 +37,4 @@ def gitignore_test() -> Path:
 @pytest.fixture(scope='session')
 def schema() -> Namespace:
     """Load BIDS schema for tests."""
-    return load_schema()  # type: ignore[no-any-return]
+    return load_schema()

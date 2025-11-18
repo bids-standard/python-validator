@@ -147,6 +147,9 @@ inline-quotes = "single"
 quote-style = "single"
 
 [dependency-groups]
+dev = [
+    "ipython>=8.37.0",
+]
 test = [
   "pytest >=8",
   "pytest-cov >=5",

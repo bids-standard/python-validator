@@ -12,8 +12,8 @@ from collections.abc import Iterator
 from typing import Annotated
 
 from bidsschematools.schema import load_schema
-from bidsschematools.types import Namespace
 from bidsschematools.types.context import Subject
+from bidsschematools.types.namespace import Namespace
 
 from bids_validator import BIDSValidator
 from bids_validator.context import Context, Dataset, Sessions
@@ -22,11 +22,11 @@ from bids_validator.types.files import FileTree
 app = typer.Typer()
 
 
-def is_subject_dir(tree):
+def is_subject_dir(tree: FileTree) -> bool:
     return tree.name.startswith('sub-')
 
 
-def walk(tree: FileTree, dataset: Dataset, subject: Subject = None) -> Iterator[Context]:
+def walk(tree: FileTree, dataset: Dataset, subject: Subject | None = None) -> Iterator[Context]:
     """Iterate over children of a FileTree and check if they are a directory or file.
 
     If it's a directory then run again recursively, if it's a file file check the file name is
@@ -52,7 +52,7 @@ def walk(tree: FileTree, dataset: Dataset, subject: Subject = None) -> Iterator[
             yield Context(child, dataset, subject)
 
 
-def validate(tree: FileTree, schema: Namespace):
+def validate(tree: FileTree, schema: Namespace) -> None:
     """Check if the file path is BIDS compliant.
 
     Parameters
@@ -71,14 +71,14 @@ def validate(tree: FileTree, schema: Namespace):
             print(f'{file.path} is not a valid bids filename')
 
 
-def show_version():
+def show_version() -> None:
     """Show bids-validator version."""
     from . import __version__
 
     print(f'bids-validator {__version__} (Python {sys.version.split()[0]})')
 
 
-def version_callback(value: bool):
+def version_callback(value: bool) -> None:
     """Run the callback for CLI version flag.
 
     Parameters

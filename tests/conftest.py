@@ -1,12 +1,13 @@
 """Pytest configuration."""
 
-import importlib.resources
 import os
 from pathlib import Path
 
 import pytest
 from bidsschematools.schema import load_schema
-from bidsschematools.types import Namespace
+from bidsschematools.types.namespace import Namespace
+
+from .data import load_data
 
 
 @pytest.fixture(scope='session')
@@ -14,11 +15,10 @@ def examples() -> Path:
     """Get bids-examples from submodule, allow environment variable override."""
     ret = os.getenv('BIDS_EXAMPLES')
     if not ret:
-        ret = importlib.resources.files(__spec__.parent) / 'data' / 'bids-examples'
-        if not any(ret.iterdir()):
+        examples = load_data('bids-examples')
+        if not any(examples.iterdir()):
             pytest.skip('bids-examples submodule is not checked out')
-    else:  # pragma: no cover
-        pass
+        return examples
     return Path(ret)
 
 
@@ -27,11 +27,10 @@ def gitignore_test() -> Path:
     """Get bids-examples from submodule, allow environment variable override."""
     ret = os.getenv('GITIGNORE_TEST_DIR')
     if not ret:
-        ret = importlib.resources.files(__spec__.parent) / 'data' / 'gitignore-test'
-        if not any(ret.iterdir()):
+        test_data = load_data('gitignore-test')
+        if not any(test_data.iterdir()):
             pytest.skip('gitignore-test submodule is not checked out')
-    else:  # pragma: no cover
-        pass
+        return test_data
     return Path(ret)
 
 

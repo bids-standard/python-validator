@@ -1,9 +1,11 @@
+from pathlib import Path
+
 import attrs
 
 from bids_validator.types.files import FileTree
 
 
-def test_FileTree(examples):
+def test_FileTree(examples: Path) -> None:
     """Test the FileTree class."""
     ds000117 = FileTree.read_from_filesystem(examples / 'ds000117')
     assert 'sub-01/ses-mri/anat/sub-01_ses-mri_acq-mprage_T1w.nii.gz' in ds000117

@@ -106,6 +106,8 @@ def test_context(synthetic_dataset: FileTree, schema: Namespace) -> None:
     assert bold_context.sidecar is not None
     assert bold_context.sidecar.to_dict() == {'TaskName': 'N-Back', 'RepetitionTime': 2.5}
     assert bold_context.json is None
+    assert bold_context.nifti_header is not None
+    assert bold_context.nifti_header.voxel_sizes == (2.0, 2.0, 2.0, 2.5)
 
     ## Tests for:
     #  associations

@@ -206,3 +206,32 @@ def test_load_tsv_gz(synthetic_dataset: FileTree) -> None:
 
     assert tuple(tsvgz_file.keys()) == headers
     # Will need an additional test for the content
+
+
+def test_nifti_mrs_header(
+    mrs_data: Path,
+    schema: Namespace,
+    memfs: fsspec.AbstractFileSystem,
+    tmp_path: Path,
+) -> None:
+    example_01 = mrs_data / 'example_01.nii.gz'
+    memfs.pipe(
+        {
+            '/dataset_description.json': json.dumps(
+                {'Name': 'MRS Test Dataset', 'BIDSVersion': '1.10.1'}
+            ).encode(),
+            '/sub-01/mrs/sub-01_acq-press_mrs.nii.gz': example_01.read_bytes(),
+        }
+    )
+    memfs.get('memory:///', str(tmp_path), recursive=True)
+    dataset = FileTree.read_from_filesystem(tmp_path)
+    sub01 = dataset / 'sub-01'
+    mrs = dataset / 'sub-01' / 'mrs' / 'sub-01_acq-press_mrs.nii.gz'
+
+    ds = context.Dataset(dataset, schema)
+    subject = Subject(context.Sessions(sub01))
+    mrs_context = context.Context(mrs, ds, subject)
+
+    assert mrs_context.nifti_header is not None
+    assert isinstance(mrs_context.nifti_header.mrs, Namespace)
+    assert mrs_context.nifti_header.mrs.ResonantNucleus == ['1H']

@@ -78,6 +78,7 @@ def test_context(synthetic_dataset: FileTree, schema: Namespace) -> None:
     sub01 = synthetic_dataset / 'sub-01'
     T1w = sub01 / 'ses-01' / 'anat' / 'sub-01_ses-01_T1w.nii'
     bold = sub01 / 'ses-01' / 'func' / 'sub-01_ses-01_task-nback_run-01_bold.nii'
+    events = synthetic_dataset / 'task-nback_events.tsv'
 
     subject = Subject(context.Sessions(sub01))
     ds = context.Dataset(synthetic_dataset, schema)
@@ -106,12 +107,21 @@ def test_context(synthetic_dataset: FileTree, schema: Namespace) -> None:
     assert bold_context.sidecar is not None
     assert bold_context.sidecar.to_dict() == {'TaskName': 'N-Back', 'RepetitionTime': 2.5}
     assert bold_context.json is None
+    assert bold_context.nifti_header is not None
+    assert bold_context.nifti_header.voxel_sizes == (2.0, 2.0, 2.0, 2.5)
+
+    events_context = context.Context(events, ds, subject=None)
+
+    assert events_context.sidecar == Namespace()
+    assert events_context.json is None
+    assert events_context.nifti_header is None
+    assert isinstance(events_context.columns, Namespace)
+    assert 'onset' in events_context.columns
+    assert len(events_context.columns.onset) == 42
 
     ## Tests for:
     #  associations
-    #  columns
     #  gzip
-    #  nifti_header
     #  ome
     #  tiff
 
@@ -204,3 +214,32 @@ def test_load_tsv_gz(synthetic_dataset: FileTree) -> None:
 
     assert tuple(tsvgz_file.keys()) == headers
     # Will need an additional test for the content
+
+
+def test_nifti_mrs_header(
+    mrs_data: Path,
+    schema: Namespace,
+    memfs: fsspec.AbstractFileSystem,
+    tmp_path: Path,
+) -> None:
+    example_01 = mrs_data / 'example_01.nii.gz'
+    memfs.pipe(
+        {
+            '/dataset_description.json': json.dumps(
+                {'Name': 'MRS Test Dataset', 'BIDSVersion': '1.10.1'}
+            ).encode(),
+            '/sub-01/mrs/sub-01_acq-press_mrs.nii.gz': example_01.read_bytes(),
+        }
+    )
+    memfs.get('memory:///', str(tmp_path), recursive=True)
+    dataset = FileTree.read_from_filesystem(tmp_path)
+    sub01 = dataset / 'sub-01'
+    mrs = dataset / 'sub-01' / 'mrs' / 'sub-01_acq-press_mrs.nii.gz'
+
+    ds = context.Dataset(dataset, schema)
+    subject = Subject(context.Sessions(sub01))
+    mrs_context = context.Context(mrs, ds, subject)
+
+    assert mrs_context.nifti_header is not None
+    assert isinstance(mrs_context.nifti_header.mrs, Namespace)
+    assert mrs_context.nifti_header.mrs.ResonantNucleus == ['1H']

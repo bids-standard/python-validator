@@ -4,3 +4,6 @@
 [submodule "tests/data/gitignore-test"]
 	path = tests/data/gitignore-test
 	url = https://github.com/svent/gitignore-test
+[submodule "tests/data/mrs_nifti_standard"]
+	path = tests/data/mrs_nifti_standard
+	url = https://github.com/wtclarke/mrs_nifti_standard

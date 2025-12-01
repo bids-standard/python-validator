@@ -1,5 +1,5 @@
 ---
-name: Checks
+name: Tox checks
 
 on:
   push:
@@ -21,8 +21,8 @@ permissions:
   contents: read
 
 jobs:
-  codespell:
-    name: Check for spelling errors
+  check:
+    name: Tox checks
     runs-on: ubuntu-latest
     strategy:
       matrix:

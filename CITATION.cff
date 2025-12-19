@@ -1,0 +1,44 @@
+# schema: https://github.com/citation-file-format/citation-file-format/blob/main/schema-guide.md
+
+cff-version: 1.2.0
+
+title: BIDS Validator - Python
+
+license: MIT
+
+type: software
+
+repository-code: https://github.com/bids-standard/python-validator
+
+message: >
+    The bids-validator is a software tool to check neuroimaging datasets for adherence to the Brain Imaging Data Structure (BIDS) format.
+    More information about BIDS can be found at <a href=\"https://bids.neuroimaging.io\">bids.neuroimaging.io</a>.
+
+keywords:
+  - brain imaging data structure
+  - BIDS
+  - neuroscience
+  - neuroimaging
+  - neuroinformatics
+
+authors:
+  - family-names: Markiewicz
+    given-names: Christopher J.
+    orcid: https://orcid.org/0000-0002-6533-164X
+    affiliation: Stanford University
+  - family-names: Brady
+    given-names: Dan
+  - family-names: Blair
+    given-names: Ross
+    orcid: https://orcid.org/0000-0003-3007-1056
+    affiliation: Stanford University
+  - family-names: Appelhoff
+    given-names: Stefan
+    orcid: https://orcid.org/0000-0001-8002-0877
+  - family-names: Gau
+    given-names: Rémi
+    orcid: https://orcid.org/0000-0002-1535-9767
+  - family-names: Hobson-Lowther
+    given-names: Teal
+  - family-names: Papadopoulos
+    given-names: Dimitri

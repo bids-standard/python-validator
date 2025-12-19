@@ -65,6 +65,7 @@ minversion = "6"
 testpaths = ["tests"]
 log_level = "INFO"
 xfail_strict = true
+addopts = ["-ra", "--strict-config", "--strict-markers"]
 norecursedirs = ["data"]
 doctest_optionflags = ["NORMALIZE_WHITESPACE", "IGNORE_EXCEPTION_DETAIL"]
 

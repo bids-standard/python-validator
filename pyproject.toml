@@ -166,6 +166,7 @@ strict = true
 exclude = [
   "^tests/data",
 ]
+warn_unreachable = true
 
 [[tool.mypy.overrides]]
 module = 'bids_validator._version'

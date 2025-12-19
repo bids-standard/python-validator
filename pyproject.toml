@@ -61,6 +61,7 @@ tag_prefix = ""
 parentdir_prefix = ""
 
 [tool.pytest.ini_options]
+minversion = "6"
 norecursedirs = ["data"]
 doctest_optionflags = ["NORMALIZE_WHITESPACE", "IGNORE_EXCEPTION_DETAIL"]
 

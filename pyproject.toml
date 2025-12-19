@@ -64,6 +64,7 @@ parentdir_prefix = ""
 minversion = "6"
 testpaths = ["tests"]
 log_level = "INFO"
+xfail_strict = true
 norecursedirs = ["data"]
 doctest_optionflags = ["NORMALIZE_WHITESPACE", "IGNORE_EXCEPTION_DETAIL"]
 

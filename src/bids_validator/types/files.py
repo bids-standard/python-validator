@@ -26,7 +26,7 @@ class FileTree:
 
     def __attrs_post_init__(self) -> None:
         if self.is_dir is None:
-            object.__setattr__(self, 'is_dir', self.path_obj.is_dir())
+            object.__setattr__(self, 'is_dir', self.path_obj.is_dir())  # type: ignore[unreachable]
         object.__setattr__(
             self,
             'children',

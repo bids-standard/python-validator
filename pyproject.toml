@@ -70,7 +70,6 @@ filterwarnings = ["error"]
 norecursedirs = ["data"]
 doctest_optionflags = ["NORMALIZE_WHITESPACE", "IGNORE_EXCEPTION_DETAIL"]
 
-
 [tool.coverage.run]
 branch = true
 parallel = true

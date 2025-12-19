@@ -167,6 +167,7 @@ exclude = [
   "^tests/data",
 ]
 warn_unreachable = true
+enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 
 [[tool.mypy.overrides]]
 module = 'bids_validator._version'

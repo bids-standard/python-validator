@@ -63,6 +63,7 @@ parentdir_prefix = ""
 [tool.pytest.ini_options]
 minversion = "6"
 testpaths = ["tests"]
+log_level = "INFO"
 norecursedirs = ["data"]
 doctest_optionflags = ["NORMALIZE_WHITESPACE", "IGNORE_EXCEPTION_DETAIL"]
 

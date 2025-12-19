@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools", "versioneer[toml]"]
+requires = ["setuptools >=77.0.3", "versioneer[toml]"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,7 +7,8 @@ name = "bids-validator"
 dynamic = ["version"]
 description = "Validator for the Brain Imaging Data Structure"
 readme = "README.md"
-license = { text = "MIT License" }
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     { name = "BIDS developers", email = "bids-discussion@googlegroups.com" },
 ]
@@ -15,7 +16,6 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: Console",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Topic :: Scientific/Engineering",

@@ -1,7 +1,12 @@
 on:
   push:
+    branches:
+      - main
+      - maint/*
   pull_request:
-    branches: [main]
+    branches:
+      - main
+      - maint/*
   release:
     types:
       - published

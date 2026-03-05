@@ -77,6 +77,7 @@ source = ["bids_validator", "tests"]
 omit = [
   "setup.py",
   "*/_version.py",
+  "*/test_bids_validator.py",
 ]
 
 [tool.coverage.paths]

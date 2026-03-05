@@ -62,7 +62,7 @@ parentdir_prefix = ""
 
 [tool.pytest.ini_options]
 minversion = "6"
-testpaths = ["tests"]
+testpaths = ["src", "tests"]
 log_level = "INFO"
 xfail_strict = true
 addopts = ["-ra", "--strict-config", "--strict-markers"]
@@ -73,11 +73,10 @@ doctest_optionflags = ["NORMALIZE_WHITESPACE", "IGNORE_EXCEPTION_DETAIL"]
 [tool.coverage.run]
 branch = true
 parallel = true
-source = ["bids_validator", "tests"]
+source = ["src", "tests"]
 omit = [
   "setup.py",
   "*/_version.py",
-  "*/test_bids_validator.py",
 ]
 
 [tool.coverage.paths]

@@ -1,0 +1,93 @@
+name: Prerelease tests
+
+on:
+  push:
+    branches:
+      - ci/prerelease
+  schedule:
+    - cron: '0 0 * * 1'
+  # Allow job to be triggered manually from GitHub interface
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+# Force tox and pytest to use color
+env:
+  FORCE_COLOR: true
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ['3.12', '3.13', '3.14']
+
+    env:
+      DEPENDS: pre
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+          lfs: true
+
+      - name: Set git name/email
+        run: |
+          git config --global user.email "bids.maintenance@gmail.com"
+          git config --global user.name "bids-maintenance"
+
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install git-annex
+        run: uv tool install git-annex
+
+      - name: Show software versions
+        run: |
+          python -c "import sys; print(sys.version)"
+          git annex version
+
+      - name: Install tox
+        run: |
+          uv tool install --with=tox-uv --with=tox-gh-actions tox
+      - name: Show tox config
+        run: tox c
+      - name: Setup test suite
+        run: tox run -vv --notest
+      - name: Run test suite
+        id: pre
+        run: tox -v --skip-pkg-install --exit-and-dump-after 1200
+      - uses: codecov/codecov-action@v5
+        if: ${{ always() }}
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+      - name: Create issue
+        # Workflows triggered by schedule only notify the workflow creator
+        # So let's open an issue to make sure this is visible to all
+        if: ${{ steps.pre.outcome != 'success' }}
+        uses: JasonEtco/create-an-issue@v2.9.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          run_id: ${{ github.run_id }}
+          repository: ${{ github.repository }}
+          workflow_name: PRE-RELEASE TESTS
+        with:
+          filename: .github/workflow_failure.md
+          update_existing: true
+          search_existing: open
+      - name: Return failure
+        if: ${{ steps.pre.outcome != 'success' }}
+        run: exit 1

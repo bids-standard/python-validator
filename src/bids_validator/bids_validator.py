@@ -103,7 +103,11 @@ class BIDSValidator:
 
             all_rules = chain.from_iterable(
                 bst.rules.regexify_filename_rules(group, schema, level=2)
-                for group in (schema.rules.files.common, schema.rules.files.raw, schema.rules.files.deriv)
+                for group in (
+                    schema.rules.files.common,
+                    schema.rules.files.raw,
+                    schema.rules.files.deriv,
+                )
             )
             cls.regexes = [rule['regex'] for rule in all_rules]
 

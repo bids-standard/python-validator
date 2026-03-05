@@ -5,12 +5,6 @@ import pytest
 from bids_validator import BIDSValidator
 
 
-@pytest.fixture(scope='module')
-def validator() -> BIDSValidator:
-    """Return a BIDSValidator instance."""
-    return BIDSValidator()
-
-
 @pytest.mark.parametrize(
     'fname',
     [
@@ -23,9 +17,9 @@ def validator() -> BIDSValidator:
         '/sub-01/anat/sub-01_space-MNI152_dseg.nii.gz',
     ],
 )
-def test_derivative_filenames_are_bids(validator: BIDSValidator, fname: str) -> None:
+def test_derivative_filenames_are_bids(fname: str) -> None:
     """Test that derivative filenames are recognized as valid BIDS."""
-    assert validator.is_bids(fname)
+    assert BIDSValidator.is_bids(fname)
 
 
 @pytest.mark.parametrize(
@@ -57,12 +51,9 @@ def test_derivative_filenames_are_bids(validator: BIDSValidator, fname: str) -> 
         ),
     ],
 )
-def test_parse_derivative_entities(
-    validator: BIDSValidator, fname: str, expected: dict[str, str]
-) -> None:
+def test_parse_derivative_entities(fname: str, expected: dict[str, str]) -> None:
     """Test that parse() returns derivative-specific entities."""
-    result = validator.parse(fname)
-    assert result == expected
+    assert BIDSValidator.parse(fname) == expected
 
 
 @pytest.mark.parametrize(
@@ -73,6 +64,6 @@ def test_parse_derivative_entities(
         '/sub-01/func/sub-01_space-MNI152_desc-preproc_bold.nii.gz',  # missing required task entity
     ],
 )
-def test_invalid_derivative_filenames(validator: BIDSValidator, fname: str) -> None:
+def test_invalid_derivative_filenames(fname: str) -> None:
     """Test that invalid derivative filenames are rejected."""
-    assert not validator.is_bids(fname)
+    assert not BIDSValidator.is_bids(fname)

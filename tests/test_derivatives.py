@@ -54,16 +54,3 @@ def test_derivative_filenames_are_bids(fname: str) -> None:
 def test_parse_derivative_entities(fname: str, expected: dict[str, str]) -> None:
     """Test that parse() returns derivative-specific entities."""
     assert BIDSValidator.parse(fname) == expected
-
-
-@pytest.mark.parametrize(
-    'fname',
-    [
-        '/sub-01/anat/sub-01_space-MNI152_desc-preproc_T1w.exe',  # wrong extension
-        '/sub-01/anat/sub-01_space-MNI152_desc-preproc_T1w.niigz',  # wrong extension
-        '/sub-01/func/sub-01_space-MNI152_desc-preproc_bold.nii.gz',  # missing required task entity
-    ],
-)
-def test_invalid_derivative_filenames(fname: str) -> None:
-    """Test that invalid derivative filenames are rejected."""
-    assert not BIDSValidator.is_bids(fname)

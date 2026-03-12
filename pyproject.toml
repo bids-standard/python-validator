@@ -154,6 +154,7 @@ quote-style = "single"
 [dependency-groups]
 dev = [
     "ipython>=8.37.0",
+    "ruff>=0.15.5",
 ]
 test = [
   "pytest >=8",

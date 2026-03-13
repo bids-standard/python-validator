@@ -204,9 +204,7 @@ def test_is_session_level(validator: BIDSValidator, fname: str) -> None:
         '/sub-01/sub-01_acq_dwi.bval',  # missed suffix value
         '/sub-01/sub-01_acq-23-singleband_dwi.bvec',  # redundant -23-
         '/sub-01/anat/sub-01_acq-singleband_dwi.json',  # redundant /anat/
-        (
-            '/sub-01/sub-01_recrod-record_acq-singleband_run-01_dwi.bval'
-        ),  # redundant record-record_
+        '/sub-01/sub-01_recrod-record_acq-singleband_run-01_dwi.bval',  # redundant record-record_
         '/sub_01/sub-01_acq-singleband_run-01_dwi.bvec',  # wrong /sub_01/
         '/sub-01/sub-01_acq-singleband__run-01_dwi.json',  # wrong __
         '/sub-01/ses-test/sub-01_ses_test_dwi.bval',  # wrong ses_test

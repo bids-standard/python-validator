@@ -66,7 +66,7 @@ source = { editable = "." }
 dependencies = [
     { name = "acres" },
     { name = "attrs" },
-    { name = "bidsschematools" },
+    { name = "bidsschematools", extra = ["expressions"] },
     { name = "nibabel" },
     { name = "orjson" },
     { name = "universal-pathlib" },
@@ -96,7 +96,7 @@ types = [
 requires-dist = [
     { name = "acres", specifier = ">=0.5" },
     { name = "attrs", specifier = ">=24.1" },
-    { name = "bidsschematools", specifier = ">=1.1" },
+    { name = "bidsschematools", extras = ["expressions"], specifier = ">=1.1" },
     { name = "nibabel", specifier = ">=5.3.0" },
     { name = "orjson", specifier = ">=3.11.3" },
     { name = "typer", marker = "extra == 'cli'", specifier = ">=0.15" },
@@ -127,6 +127,11 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/64/ef/d4ef2e808468078ced2571ebb68b7bb1335b0d43a6592b155f52c63c087a/bidsschematools-1.2.1.tar.gz", hash = "sha256:f147943812c01a61913e8306d779393e095a58b9e8fb63b48f2366662b702a80", size = 1768328, upload-time = "2026-02-19T18:24:10.939Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/aa/fe/d1519c7bf665996ce2a0eab9e6d4684b4b995bdd20933c0f096a5539af7a/bidsschematools-1.2.1-py3-none-any.whl", hash = "sha256:50c210360393bdc54cecf3aeec872e3da5074c8541f2f1486ae4709b26e73f47", size = 194082, upload-time = "2026-02-19T18:24:08.841Z" },
+]
+
+[package.optional-dependencies]
+expressions = [
+    { name = "pyparsing" },
 ]
 
 [[package]]
@@ -1391,6 +1396,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/b0/77/a5b8c569bf593b0140bde72ea885a803b82086995367bf2037de0159d924/pygments-2.19.2.tar.gz", hash = "sha256:636cb2477cec7f8952536970bc533bc43743542f70392ae026374600add5b887", size = 4968631, upload-time = "2025-06-21T13:39:12.283Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c7/21/705964c7812476f378728bdf590ca4b771ec72385c533964653c68e86bdc/pygments-2.19.2-py3-none-any.whl", hash = "sha256:86540386c03d588bb81d44bc3928634ff26449851e99741617ecb9037ee5ec0b", size = 1225217, upload-time = "2025-06-21T13:39:07.939Z" },
+]
+
+[[package]]
+name = "pyparsing"
+version = "3.3.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/f3/91/9c6ee907786a473bf81c5f53cf703ba0957b23ab84c264080fb5a450416f/pyparsing-3.3.2.tar.gz", hash = "sha256:c777f4d763f140633dcb6d8a3eda953bf7a214dc4eff598413c070bcdc117cbc", size = 6851574, upload-time = "2026-01-21T03:57:59.36Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/10/bd/c038d7cc38edc1aa5bf91ab8068b63d4308c66c4c8bb3cbba7dfbc049f9c/pyparsing-3.3.2-py3-none-any.whl", hash = "sha256:850ba148bd908d7e2411587e247a1e4f0327839c40e2e5e6d05a007ecc69911d", size = 122781, upload-time = "2026-01-21T03:57:55.912Z" },
 ]
 
 [[package]]

@@ -37,6 +37,8 @@ ignore = [
   "D107",  # undocumented __init__
   "D203",  # blank line before class docstring
   "D213",  # multi-line-summary-first-line
+  "Q000",  # double quotes
+  "Q003",  # avoidable-escaped-quote
 ]
 
 [lint.extend-per-file-ignores]

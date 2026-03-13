@@ -152,6 +152,10 @@ inline-quotes = "single"
 quote-style = "single"
 
 [dependency-groups]
+demo = [
+    "jupyterlab>=4.5.5",
+    "jupytext>=1.19.1",
+]
 dev = [
     "ipython>=8.37.0",
 ]

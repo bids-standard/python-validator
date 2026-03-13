@@ -6,6 +6,7 @@ line-length = 100
 
 [lint]
 extend-select = [
+  'UP',
 ]
 ignore = [
 ]

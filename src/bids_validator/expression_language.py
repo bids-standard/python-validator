@@ -601,14 +601,17 @@ def new_evaluator(expr: bst_expr.ASTNode | float | str, namespace: dict) -> Any:
         case bst_expr.Array(elements=elements):
             return [new_evaluator(el, namespace) for el in elements]
         case bst_expr.Element(name=name, index=index):
-            return new_evaluator(name, namespace)[new_evaluator(index, namespace)]
+            el_name = new_evaluator(name, namespace)
+            if el_name is not None:
+                return el_name[new_evaluator(index, namespace)]
         case bst_expr.Property(name=name, field=field):
             base_object = new_evaluator(name, namespace)
             if isinstance(base_object, dict):
                 return base_object.get(field, None)
             return getattr(base_object, field, None)
         case bst_expr.Function(name=name, args=args):
-            return new_evaluator(name, namespace)(*[new_evaluator(arg, namespace) for arg in args])
+            func = new_evaluator(name, namespace)
+            return func(*[new_evaluator(arg, namespace) for arg in args])
         case bst_expr.BinOp(op=op, lh=lh, rh=rh):
             match op:
                 # Short-circuiting operators

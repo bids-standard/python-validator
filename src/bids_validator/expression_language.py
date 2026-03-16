@@ -1,3 +1,5 @@
+"""Implementation of the BIDS schema expression language."""
+
 import operator
 import re
 from typing import Any
@@ -12,7 +14,7 @@ null = None
 def evaluate_arg(arg: Any) -> Any:
     """Evaluate an individual argument."""
     if isinstance(arg, str):
-        return eval(arg) # noqa: S307
+        return eval(arg)  # noqa: S307
 
     return arg
 
@@ -515,7 +517,7 @@ def property_(expr: bst_expr.Property) -> Any:
 
     """
     if expr.name in globals():
-        return getattr(eval(expr.name), expr.field, None) # noqa: S307
+        return getattr(eval(expr.name), expr.field, None)  # noqa: S307
 
 
 # Available Binary operations
@@ -583,3 +585,40 @@ def evaluate_expr(expr):
     res = evaluate_arg(expr)
 
     return res
+
+
+def new_evaluator(expr: bst_expr.ASTNode | float | str, namespace: dict) -> Any:
+    """Evaluate an expression, with a provided namespace for variable lookup."""
+    match expr:
+        case float() | int():
+            return expr
+        case str() if expr[0] == expr[-1] and expr[0] in ('"', "'"):
+            return expr[1:-1]
+        case str():
+            return namespace.get(expr, None)
+        case bst_expr.Object():
+            return {}
+        case bst_expr.Array(elements=elements):
+            return [new_evaluator(el, namespace) for el in elements]
+        case bst_expr.Element(name=name, index=index):
+            return new_evaluator(name, namespace)[new_evaluator(index, namespace)]
+        case bst_expr.Property(name=name, field=field):
+            base_object = new_evaluator(name, namespace)
+            if isinstance(base_object, dict):
+                return base_object.get(field, None)
+            return getattr(base_object, field, None)
+        case bst_expr.Function(name=name, args=args):
+            return new_evaluator(name, namespace)(*[new_evaluator(arg, namespace) for arg in args])
+        case bst_expr.BinOp(op=op, lh=lh, rh=rh):
+            match op:
+                # Short-circuiting operators
+                case '||':
+                    return new_evaluator(lh, namespace) or new_evaluator(rh, namespace)
+                case '&&':
+                    return new_evaluator(lh, namespace) and new_evaluator(rh, namespace)
+                case _:
+                    return bin_ops[op](new_evaluator(lh, namespace), new_evaluator(rh, namespace))
+        case bst_expr.RightOp(op=op, rh=rh):
+            return right_ops[op](new_evaluator(rh, namespace))
+        case _:
+            raise ValueError(f'Expression type {type(expr)} not supported.')

@@ -6,19 +6,6 @@ from typing import Any
 
 from bidsschematools import expressions as bst_expr
 
-true = True
-false = False
-null = None
-
-
-def evaluate_arg(arg: Any) -> Any:
-    """Evaluate an individual argument."""
-    if isinstance(arg, str):
-        return eval(arg)  # noqa: S307
-
-    return arg
-
-
 def filter_strs(arg: list) -> list:
     """Filter non-numeric values from a list.
 
@@ -55,16 +42,6 @@ def is_numeric(val: Any) -> bool:
         return True
     except (ValueError, TypeError):
         return False
-
-
-def and_(a: bool | None, b: bool | None) -> bool | None:
-    """conjunction, true if both RHS and LHS are true."""
-    return a and b
-
-
-def or_(a: bool | None, b: bool | None) -> bool | None:
-    """disjunction, true if either RHS or LHS is true."""
-    return a or b
 
 
 def in_(a: Any, b: Any) -> bool | None:
@@ -376,150 +353,6 @@ def unique_(arg: list | None) -> list | None:
         return list(dict.fromkeys(arg))
 
 
-def binop(expr: bst_expr.BinOp) -> Any:
-    """Evaluate a Binary operation.
-
-    Parameters
-    ----------
-    expr : bst_expr.BinOp
-        Binary operatoion expression
-
-    Returns
-    -------
-    Any
-        Result of operation
-
-    """
-    lh = evaluate_arg(expr.lh)
-    rh = evaluate_arg(expr.rh)
-    func = bin_ops.get(expr.op)
-    if func is not None:
-        return func(lh, rh)
-
-
-def rightop(expr: bst_expr.RightOp) -> Any:
-    """Evaluate a Right operation.
-
-    Parameters
-    ----------
-    expr : bst_expr.RightOp
-        Right operation expression
-
-    Returns
-    -------
-    Any
-        Result of operation
-
-    """
-    rh = evaluate_arg(expr.rh)
-    func = right_ops.get(expr.op)
-    if func is not None:
-        return func(rh)
-
-
-def array(expr: bst_expr.Array) -> list:
-    """Evaluate an Array literal expression.
-
-    Parameters
-    ----------
-    expr : bst_expr.Array
-        Array expression
-
-    Returns
-    -------
-    list
-        An array literal
-
-    """
-    return [evaluate_expr(el) for el in expr.elements]
-
-
-def object_(expr: bst_expr.Object) -> dict:
-    """Evaluate an Object literal expression.
-
-    Parameters
-    ----------
-    expr : bst_expr.Object
-        Object expression
-
-    Returns
-    -------
-    dict
-        An Object literal
-
-    """
-    return {}
-
-
-def element(expr: bst_expr.Element) -> Any:
-    """Evaluate an Array element lookup.
-
-    Parameters
-    ----------
-    expr : bst_expr.Element
-        Element expression
-
-    Returns
-    -------
-    Any
-        Result of the array lookup
-
-    """
-    if isinstance(expr.name, str):
-        name = evaluate_arg(expr.name)
-        if name is not None:
-            return name[expr.index]
-        else:
-            return None
-    elif isinstance(expr.name, bst_expr.Array):
-        return expr.name.elements[expr.index]
-
-
-def function_(expr: bst_expr.Function) -> Any:
-    """Evaluate a Function call.
-
-    Parameters
-    ----------
-    expr : bst_expr.Function
-        Function expression
-
-    Returns
-    -------
-    Any
-        Result of the Function call
-
-    Raises
-    ------
-    ValueError
-        If the function is not implemented
-
-    """
-    func = functions.get(expr.name)
-    args_list = [evaluate_expr(arg) for arg in expr.args]
-    if func is not None:
-        return func(*args_list)
-    else:
-        raise ValueError(f'{expr.name} function not available')
-
-
-def property_(expr: bst_expr.Property) -> Any:
-    """Evaluate an Object property lookup expression.
-
-    Parameters
-    ----------
-    expr : bst_expr.Property
-        Property expression
-
-    Returns
-    -------
-    Any
-        Result of the property lookup
-
-    """
-    if expr.name in globals():
-        return getattr(eval(expr.name), expr.field, None)  # noqa: S307
-
-
 # Available Binary operations
 bin_ops = {
     '+': operator.add,
@@ -527,8 +360,6 @@ bin_ops = {
     '*': operator.mul,
     '/': operator.truediv,
     '%': operator.mod,
-    '||': or_,
-    '&&': and_,
     '==': operator.eq,
     '!=': operator.ne,
     'in': in_,
@@ -554,37 +385,13 @@ functions = {
     'unique': unique_,
 }
 
-# Available expression class types
-options = {
-    bst_expr.BinOp: binop,
-    bst_expr.RightOp: rightop,
-    bst_expr.Array: array,
-    bst_expr.Element: element,
-    bst_expr.Function: function_,
-    bst_expr.Property: property_,
-    bst_expr.Object: object_,
-}
+vals = {
+    "true": True,
+    "false": False,
+    "null": None,
+} 
 
-
-def evaluate_expr(expr):
-    """Evaluate an expression.
-
-    Raises
-    ------
-    ValueError
-        If the operation is not implemented
-
-    """
-    if isinstance(expr, bst_expr.ASTNode):
-        eval_func = options.get(type(expr))
-        if eval_func is not None:
-            return eval_func(expr)
-        else:
-            raise ValueError(f'{type(expr)} operation not available.')
-
-    res = evaluate_arg(expr)
-
-    return res
+el_namespace = vals | functions | bin_ops | right_ops
 
 
 def new_evaluator(expr: bst_expr.ASTNode | float | str, namespace: dict) -> Any:

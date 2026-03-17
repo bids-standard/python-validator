@@ -412,6 +412,7 @@ class LookupProxy:
     __getattr__ = __getitem__
 
 
+def new_evaluator(expr: bst_expr.ASTNode | float | str, namespace: dict | LookupProxy) -> Any:
     """Evaluate an expression, with a provided namespace for variable lookup."""
     match expr:
         case float() | int():
@@ -419,7 +420,9 @@ class LookupProxy:
         case str() if expr[0] == expr[-1] and expr[0] in ('"', "'"):
             return expr[1:-1]
         case str():
-            return namespace.get(expr, None)
+            if isinstance(namespace, dict):
+                return namespace.get(expr, None)
+            return getattr(namespace, expr)
         case bst_expr.Object():
             return {}
         case bst_expr.Array(elements=elements):

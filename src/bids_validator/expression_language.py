@@ -394,7 +394,24 @@ vals = {
 el_namespace = vals | functions | bin_ops | right_ops
 
 
-def new_evaluator(expr: bst_expr.ASTNode | float | str, namespace: dict) -> Any:
+class LookupProxy:
+    """Lookup proxy for context class."""
+
+    def __init__(self, *objs):
+        self.objs = objs
+
+    def __getitem__(self, key):
+        for obj in self.objs:
+            if isinstance(obj, dict) and key in obj:
+                return obj[key]
+            if hasattr(obj, key):
+                return getattr(obj, key)
+        raise AttributeError
+
+    # Provide either attr or item lookup
+    __getattr__ = __getitem__
+
+
     """Evaluate an expression, with a provided namespace for variable lookup."""
     match expr:
         case float() | int():

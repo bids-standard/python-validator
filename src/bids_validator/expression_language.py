@@ -6,6 +6,7 @@ from typing import Any
 
 from bidsschematools import expressions as bst_expr
 
+
 def filter_strs(arg: list) -> list:
     """Filter non-numeric values from a list.
 
@@ -386,10 +387,10 @@ functions = {
 }
 
 vals = {
-    "true": True,
-    "false": False,
-    "null": None,
-} 
+    'true': True,
+    'false': False,
+    'null': None,
+}
 
 el_namespace = vals | functions | bin_ops | right_ops
 

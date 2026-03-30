@@ -97,7 +97,7 @@ jobs:
       - name: Run test suite
         id: pre
         run: tox -v --skip-pkg-install --exit-and-dump-after 1200
-      - uses: codecov/codecov-action@v5
+      - uses: codecov/codecov-action@v6
         if: ${{ always() }}
         with:
           token: ${{ secrets.CODECOV_TOKEN }}

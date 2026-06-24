@@ -385,7 +385,7 @@ vals = {
     'null': None,
 }
 
-el_namespace = vals | functions | bin_ops | right_ops
+el_namespace = vals | functions
 
 
 class LookupProxy:

@@ -491,7 +491,9 @@ class Context:
         if rule == "stimuli":
             prefix /= "stimuli"
         elif rule == "subject":
-            prefix /= f"sub-{self.entities.get("sub", None)}"
+            if "sub" not in self.entities:
+                return 0
+            prefix /= f"sub-{self.entities["sub"]}"
 
         if isinstance(arg, str):
             arg = [arg]
@@ -508,7 +510,7 @@ class Context:
             
             return dataset_files + other_files
         else:
-            return sum(fileTree.__contains__(prefix / file) for file in arg)
+            return sum((prefix / file) in fileTree for file in arg)
 
 
 class Sessions:

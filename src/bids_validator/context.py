@@ -481,6 +481,25 @@ class Context:
 
         return Namespace(sidecar)
 
+    def exists(self, arg: str| list[str] | None, rule: str | None) -> int | None:
+        if rule is None or arg is None:
+            return None
+
+        prefix = UPath()
+        fileTree = self.file.parent if rule == "file" else self.dataset.tree
+
+        if rule == "stimuli":
+            prefix /= "stimuli"
+        elif rule == "subject":
+            prefix /= f"sub-{self.entities.get("sub", None)}"
+
+        if isinstance(arg, str):
+            arg = [arg]
+
+        # Needs bids-uri
+
+        return sum(fileTree.__contains__(prefix / file) for file in arg)
+
 
 class Sessions:
     """Collections of sessions in subject."""

@@ -496,9 +496,19 @@ class Context:
         if isinstance(arg, str):
             arg = [arg]
 
-        # Needs bids-uri
+        if rule == "bids-uri":
+            valid_uris = (uri for uri in arg if uri.startswith("bids:") and uri.count(":") == 2)
+            uri_parts = (uri.split(":") for uri in valid_uris)
+            # Find number of files in this dataset that exist 
+            dataset_files = self.exists([part[2] for part in uri_parts if part[1] == ""])
 
-        return sum(fileTree.__contains__(prefix / file) for file in arg)
+            # Still need to account for bids-uris where middle section is not blank
+            # Find number of files in other dataset that exist 
+            other_files = 0 
+            
+            return dataset_files + other_files
+        else:
+            return sum(fileTree.__contains__(prefix / file) for file in arg)
 
 
 class Sessions:

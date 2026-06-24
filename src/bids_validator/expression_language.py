@@ -404,7 +404,7 @@ class LookupProxy:
     __getattr__ = __getitem__
 
 
-def new_evaluator(expr: bst_expr.ASTNode | float | str, namespace: dict | LookupProxy) -> Any:
+def evaluate(expr: bst_expr.ASTNode | float | str, namespace: dict | LookupProxy) -> Any:
     """Evaluate an expression, with a provided namespace for variable lookup."""
     match expr:
         case float() | int():
@@ -418,29 +418,29 @@ def new_evaluator(expr: bst_expr.ASTNode | float | str, namespace: dict | Lookup
         case bst_expr.Object():
             return {}
         case bst_expr.Array(elements=elements):
-            return [new_evaluator(el, namespace) for el in elements]
+            return [evaluate(el, namespace) for el in elements]
         case bst_expr.Element(name=name, index=index):
-            el_name = new_evaluator(name, namespace)
+            el_name = evaluate(name, namespace)
             if el_name is not None:
-                return el_name[new_evaluator(index, namespace)]
+                return el_name[evaluate(index, namespace)]
         case bst_expr.Property(name=name, field=field):
-            base_object = new_evaluator(name, namespace)
+            base_object = evaluate(name, namespace)
             if isinstance(base_object, dict):
                 return base_object.get(field, None)
             return getattr(base_object, field, None)
         case bst_expr.Function(name=name, args=args):
-            func = new_evaluator(name, namespace)
-            return func(*[new_evaluator(arg, namespace) for arg in args])
+            func = evaluate(name, namespace)
+            return func(*[evaluate(arg, namespace) for arg in args])
         case bst_expr.BinOp(op=op, lh=lh, rh=rh):
             match op:
                 # Short-circuiting operators
                 case '||':
-                    return new_evaluator(lh, namespace) or new_evaluator(rh, namespace)
+                    return evaluate(lh, namespace) or evaluate(rh, namespace)
                 case '&&':
-                    return new_evaluator(lh, namespace) and new_evaluator(rh, namespace)
+                    return evaluate(lh, namespace) and evaluate(rh, namespace)
                 case _:
-                    return bin_ops[op](new_evaluator(lh, namespace), new_evaluator(rh, namespace))
+                    return bin_ops[op](evaluate(lh, namespace), evaluate(rh, namespace))
         case bst_expr.RightOp(op=op, rh=rh):
-            return right_ops[op](new_evaluator(rh, namespace))
+            return right_ops[op](evaluate(rh, namespace))
         case _:
             raise ValueError(f'Expression type {type(expr)} not supported.')

@@ -481,9 +481,9 @@ class Context:
 
         return Namespace(sidecar)
 
-    def exists(self, arg: str| list[str] | None, rule: str | None) -> int | None:
-        if rule is None or arg is None:
-            return None
+    def exists(self, arg: str| list[str] | None, rule: str | None = "dataset") -> int:
+        if arg is None:
+            return 0
 
         prefix = UPath()
         fileTree = self.file.parent if rule == "file" else self.dataset.tree

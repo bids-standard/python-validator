@@ -94,14 +94,6 @@ def count_(array: list, val: Any) -> int:
     return array.count(val)
 
 
-def exists_(arg: str | list | None, rule: str | None) -> int:
-    """Return a count of files that can be found within the dataset."""
-    if arg is None or rule is None:
-        return 0
-
-    # Need the actual function here
-
-
 def index_(arg: str | list | None, val: Any | None) -> int | None:
     """Find the first element of an array or string that is equal to the value provided.
 
@@ -373,7 +365,6 @@ right_ops = {'!': operator.not_}
 functions = {
     'allequal': allequal_,
     'count': count_,
-    'exists': exists_,
     'index': index_,
     'intersects': intersects_,
     'length': length_,

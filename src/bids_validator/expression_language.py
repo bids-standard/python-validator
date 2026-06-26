@@ -447,9 +447,9 @@ def evaluate(expr: bst_expr.ASTNode | float | str, namespace: dict | LookupProxy
         case _:
             raise ValueError(f'Expression type {type(expr)} not supported.')
 
+
 def interpret(rule: str, context: Context) -> Any:
     """Interpret a rule from the schema in a given file context"""
-
     namespace = LookupProxy(el_namespace, context)
     expr = bst_expr.parse(rule)
     return evaluate(expr, namespace)

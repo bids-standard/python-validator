@@ -38,7 +38,7 @@ jobs:
       id-token: write
       attestations: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           submodules: true
@@ -64,7 +64,7 @@ jobs:
       DEPENDS: ${{ matrix.dependencies }}
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           submodules: true
           lfs: true
@@ -97,7 +97,7 @@ jobs:
       - name: Run test suite
         id: pre
         run: tox -v --skip-pkg-install --exit-and-dump-after 1200
-      - uses: codecov/codecov-action@v5
+      - uses: codecov/codecov-action@v7
         if: ${{ always() }}
         with:
           token: ${{ secrets.CODECOV_TOKEN }}

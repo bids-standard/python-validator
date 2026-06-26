@@ -493,7 +493,7 @@ class Context:
         elif rule == "subject":
             if "sub" not in self.entities:
                 return 0
-            prefix /= f"sub-{self.entities["sub"]}"
+            prefix /= f"sub-{self.entities['sub']}"
 
         if isinstance(arg, str):
             arg = [arg]

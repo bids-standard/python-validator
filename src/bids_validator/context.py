@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import gzip
 import itertools
+import struct
 from functools import cache
 
 import attrs
@@ -138,6 +139,45 @@ def load_nifti_header(file: FileTree) -> ctx.NiftiHeader:
     )
 
     return nifti_header
+
+
+def load_gzip_header(file: FileTree) -> ctx.Gzip | None:
+    """Load gzip header fields.
+
+    Reference: https://www.rfc-editor.org/info/rfc1952/
+    """
+    try:
+        with file.path_obj.open('rb') as fobj:
+            # Constant header fields: ID1, ID2, CM, FLG, MTIME, XFL, OS
+            magic, flags, timestamp = struct.unpack('<HxBIxx', fobj.read(10))
+            if magic != 0x8B1F:
+                return None
+
+            if flags & 0b0_0100:  # FEXTRA
+                size = int.from_bytes(fobj.read(2), 'little')
+                fobj.seek(size, 1)  # Skip extra field
+
+            # Fetch enough header to include filename and at least the start of comment.
+            # Buffer should be 1-4KiB. Use 512 bytes (-10 already read) to avoid potentially
+            # depleting the buffer and triggering another IO call, if possible.
+            # If extra fields were present and >512 bytes, so be it.
+            buffer = fobj.read(502)
+    except OSError:
+        return None
+
+    filename = ''
+    if flags & 0b0_1000:  # FNAME
+        fname, buffer = buffer.split(b'\x00', 1)
+        filename = fname.decode('latin-1')
+
+    comment = ''
+    if flags & 0b1_0000:  # FCOMMENT
+        # If the comment extends beyond the buffer, split will return one entry.
+        # *_ accounts for this by setting `_ = []`.
+        cmnt, *_ = buffer.split(b'\x00', 1)
+        comment = cmnt.decode('latin-1')
+
+    return ctx.Gzip(timestamp=timestamp, filename=filename, comment=comment)
 
 
 class Subjects:
@@ -452,10 +492,12 @@ class Context:
 
         return None
 
-    @property
-    def gzip(self) -> None:
+    @cached_property
+    def gzip(self) -> ctx.Gzip | None:
         """Parsed contents of gzip header."""
-        pass
+        if self.path.endswith('.gz'):
+            return load_gzip_header(self.file)
+        return None
 
     @cached_property
     def nifti_header(self) -> ctx.NiftiHeader | None:

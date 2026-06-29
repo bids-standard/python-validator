@@ -492,10 +492,12 @@ class Context:
 
         return None
 
-    @property
-    def gzip(self) -> None:
+    @cached_property
+    def gzip(self) -> ctx.Gzip | None:
         """Parsed contents of gzip header."""
-        pass
+        if self.path.endswith('.gz'):
+            return load_gzip_header(self.file)
+        return None
 
     @cached_property
     def nifti_header(self) -> ctx.NiftiHeader | None:

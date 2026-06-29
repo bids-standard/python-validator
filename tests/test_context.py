@@ -78,6 +78,7 @@ def test_context(synthetic_dataset: FileTree, schema: Namespace) -> None:
     sub01 = synthetic_dataset / 'sub-01'
     T1w = sub01 / 'ses-01' / 'anat' / 'sub-01_ses-01_T1w.nii'
     bold = sub01 / 'ses-01' / 'func' / 'sub-01_ses-01_task-nback_run-01_bold.nii'
+    stim = sub01 / 'ses-01' / 'func' / 'sub-01_ses-01_task-nback_run-01_stim.tsv.gz'
     events = synthetic_dataset / 'task-nback_events.tsv'
 
     subject = Subject(context.Sessions(sub01))
@@ -101,12 +102,14 @@ def test_context(synthetic_dataset: FileTree, schema: Namespace) -> None:
     assert T1w_context.sidecar is not None
     assert T1w_context.sidecar == {}
     assert T1w_context.json is None
+    assert T1w_context.gzip is None
 
     bold_context = context.Context(bold, ds, subject)
 
     assert bold_context.sidecar is not None
     assert bold_context.sidecar.to_dict() == {'TaskName': 'N-Back', 'RepetitionTime': 2.5}
     assert bold_context.json is None
+    assert bold_context.gzip is None
     assert bold_context.nifti_header is not None
     assert bold_context.nifti_header.voxel_sizes == (2.0, 2.0, 2.0, 2.5)
 
@@ -114,14 +117,24 @@ def test_context(synthetic_dataset: FileTree, schema: Namespace) -> None:
 
     assert events_context.sidecar == Namespace()
     assert events_context.json is None
+    assert events_context.gzip is None
     assert events_context.nifti_header is None
     assert isinstance(events_context.columns, Namespace)
     assert 'onset' in events_context.columns
     assert len(events_context.columns.onset) == 42
 
+    stim_context = context.Context(stim, ds, subject)
+    assert stim_context.sidecar is not None
+    assert set(stim_context.sidecar) == {'SamplingFrequency', 'StartTime', 'Columns'}
+    assert stim_context.gzip is not None
+    assert stim_context.gzip.filename == stim.name.removesuffix('.gz')
+    assert stim_context.gzip.timestamp != 0
+    assert stim_context.gzip.comment == ''
+    assert isinstance(stim_context.columns, Namespace)
+    assert list(stim_context.columns.keys()) == stim_context.sidecar.Columns
+
     ## Tests for:
     #  associations
-    #  gzip
     #  ome
     #  tiff
 
@@ -214,6 +227,22 @@ def test_load_tsv_gz(synthetic_dataset: FileTree) -> None:
 
     assert tuple(tsvgz_file.keys()) == headers
     # Will need an additional test for the content
+
+
+def test_load_gzip_header(synthetic_dataset: FileTree) -> None:
+    tsvgz = (
+        synthetic_dataset
+        / 'sub-01'
+        / 'ses-01'
+        / 'func'
+        / 'sub-01_ses-01_task-nback_run-01_stim.tsv.gz'
+    )
+
+    gz_header = context.load_gzip_header(tsvgz)
+    assert gz_header is not None
+    assert gz_header.timestamp != 0
+    assert gz_header.filename == tsvgz.name.removesuffix('.gz')
+    assert gz_header.comment == ''
 
 
 def test_nifti_mrs_header(

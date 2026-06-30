@@ -523,6 +523,37 @@ class Context:
 
         return Namespace(sidecar)
 
+    def exists(self, arg: str | list[str] | None, rule: str | None = 'dataset') -> int:
+        if arg is None:
+            return 0
+
+        prefix = UPath()
+        fileTree = self.file.parent if rule == 'file' else self.dataset.tree
+
+        if rule == 'stimuli':
+            prefix /= 'stimuli'
+        elif rule == 'subject':
+            if 'sub' not in self.entities:
+                return 0
+            prefix /= f'sub-{self.entities["sub"]}'
+
+        if isinstance(arg, str):
+            arg = [arg]
+
+        if rule == 'bids-uri':
+            valid_uris = (uri for uri in arg if uri.startswith('bids:') and uri.count(':') == 2)
+            uri_parts = (uri.split(':') for uri in valid_uris)
+            # Find number of files in this dataset that exist
+            dataset_files = self.exists([part[2] for part in uri_parts if part[1] == ''])
+
+            # Still need to account for bids-uris where middle section is not blank
+            # Find number of files in other dataset that exist
+            other_files = 0
+
+            return dataset_files + other_files
+        else:
+            return sum((prefix / file) in fileTree for file in arg)
+
 
 class Sessions:
     """Collections of sessions in subject."""

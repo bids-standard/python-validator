@@ -1,0 +1,455 @@
+"""Implementation of the BIDS schema expression language."""
+
+import operator
+import re
+from typing import Any
+
+from bidsschematools import expressions as bst_expr
+
+from bids_validator.context import Context
+
+
+def filter_strs(arg: list) -> list:
+    """Filter non-numeric values from a list.
+
+    Parameters
+    ----------
+    arg : list
+        list that may contain elements with a list of types
+
+    Returns
+    -------
+    list
+        list containing just numeric (i.e. int and float) values
+
+    """
+    return [val for val in arg if isinstance(val, (int, float))]
+
+
+def is_numeric(val: Any) -> bool:
+    """Determine if a value can be coerced to numeric.
+
+    Parameters
+    ----------
+    val : Any
+        value to check
+
+    Returns
+    -------
+    bool
+        Indicates whether the value can be coerced
+
+    """
+    try:
+        float(val)
+        return True
+    except (ValueError, TypeError):
+        return False
+
+
+def in_(a: Any, b: Any) -> bool | None:
+    """Object lookup, true if RHS is a subfield of LHS."""
+    return operator.contains(b, a) if b is not None else None
+
+
+def allequal_(array1: list | None, array2: list | None) -> bool:
+    """Determine if two arrays have the same length and paired elements are equal.
+
+    Parameters
+    ----------
+    array1 : list | None
+        list of values
+    array2 : list | None
+        list of values
+
+    Returns
+    -------
+    bool
+        Indicates whether lists are all equal
+
+    """
+    if array1 is None or array2 is None:
+        return False
+
+    if len(array1) != len(array2):
+        return False
+
+    return all(a == b for a, b in zip(array1, array2, strict=True))
+
+
+def count_(array: list, val: Any) -> int:
+    """Count the number of times a value is found in an array.
+
+    Parameters
+    ----------
+    array : list
+        Array of elements
+    val : Any
+        value to count
+
+    Returns
+    -------
+    int
+        Number of elements in an array equal to val
+
+    """
+    return array.count(val)
+
+
+def index_(arg: str | list | None, val: Any | None) -> int | None:
+    """Find the first element of an array or string that is equal to the value provided.
+
+    Parameters
+    ----------
+    arg : str | list | None
+        Array of elements or string
+    val : Any | None
+        Value to find
+
+    Returns
+    -------
+    int | None
+        Index of first element in an array equal to val, null if not found
+
+    """
+    if arg is None or val is None:
+        return None
+
+    if val in arg:
+        return arg.index(val)
+
+
+def intersects_(a: list | None, b: list | None) -> list | bool:
+    """Find the common values in two arrays.
+
+    Parameters
+    ----------
+    a : list | None
+        Array one
+    b : list | None
+        Array two
+
+    Returns
+    -------
+    list | bool
+        The intersection of arrays a and b, or false if there are no shared values
+
+    """
+    if a is None or b is None:
+        return False
+
+    res = list(set(a) & set(b))
+
+    if res:
+        return res
+    else:
+        return False
+
+
+def length_(arg: list | None) -> int | None:
+    """Find the number of elements in an array.
+
+    Parameters
+    ----------
+    arg : list | None
+        An Array
+
+    Returns
+    -------
+    int | None
+        Number of elements in the array
+
+    """
+    if arg is not None:
+        return len(arg)
+
+
+def match_(arg: str | None, pattern: str | None) -> bool | None:
+    """Evaluate whether a regular expression pattern appears in a string.
+
+    Parameters
+    ----------
+    arg : str | None
+        The string to evaluate
+    pattern : str | None
+        The pattern to match
+
+    Returns
+    -------
+    bool | None
+        true if arg matches the regular expression pattern (anywhere in string)
+
+    """
+    if arg is None:
+        return None
+    elif pattern is None:
+        return False
+
+    res = re.match(pattern, arg)
+    return res is not None
+
+
+def max_(arg: int | float | list | None) -> int | float | None:
+    """Find the largest numerical value in an array.
+
+    Parameters
+    ----------
+    arg : list | None
+        The array to evaluate
+
+    Returns
+    -------
+    int | float | None
+        The largest non-n/a value in an array
+
+    """
+    if arg is None:
+        return None
+
+    if isinstance(arg, (float, int)):
+        return arg
+
+    return max(filter_strs(arg))
+
+
+def min_(arg: int | float | list | None) -> int | float | None:
+    """Find the smallest numerical value in an array.
+
+    Parameters
+    ----------
+    arg : list | None
+        The array to evaluate
+
+    Returns
+    -------
+    int | float | None
+        The smallest non-n/a value in an array
+
+    """
+    if arg is None:
+        return None
+
+    if isinstance(arg, (float, int)):
+        return arg
+
+    return min(filter_strs(arg))
+
+
+def sorted_(arg: list, method: str | None = None) -> list:
+    """Return sorted input array.
+
+    Defaults to type-determined sort.
+    If method is “lexical”, or “numeric” use lexical or numeric sort.
+
+    Parameters
+    ----------
+    arg : list
+        Array to sort
+    method : str | None, optional
+        Method to sort by, can be "lexical" or "numerical", by default None
+
+    Returns
+    -------
+    list
+        The sorted values of the input array
+
+    """
+    contains_str = any(isinstance(x, str) for x in arg)
+
+    if method is None:
+        if contains_str:
+            return sorted_(arg, method='lexical')
+        else:
+            return sorted_(arg, method='numeric')
+
+    if method == 'lexical':
+        return sorted(arg, key=str)
+
+    elif method == 'numeric':
+        non_numeric_vals = {i: d for i, d in enumerate(arg) if not is_numeric(d)}
+        if non_numeric_vals:
+            numeric_vals = [d for d in arg if is_numeric(d)]
+            sorted_vals = sorted_(numeric_vals, method='numeric')
+
+            for key, val in non_numeric_vals.items():
+                sorted_vals.insert(key, val)
+
+            return sorted_vals
+        else:
+            return sorted(arg, key=int)
+
+
+def substr_(arg: str | None, start: int | None, end: int | None) -> str | None:
+    """Extract a sub-string from an existing string.
+
+    Parameters
+    ----------
+    arg : str | None
+        String to evaluate
+    start : int | None
+        Start position
+    end : int | None
+        End position
+
+    Returns
+    -------
+    str | None
+        The portion of the input string spanning from start position to end position
+
+    """
+    if arg is not None and start is not None and end is not None:
+        return arg[start:end]
+
+
+def type_(var: Any) -> str:
+    """Evaluate the type of a variable.
+
+    Parameters
+    ----------
+    var : Any
+        Variable to evaluate
+
+    Returns
+    -------
+    str
+        The name of the type, including "array", "object", "null"
+
+    """
+    match var:
+        case bool():
+            return 'boolean'
+        case int() | float():
+            return 'number'
+        case list():
+            return 'array'
+        case dict():
+            return 'object'
+        case _:
+            return 'null'
+
+
+def unique_(arg: list | None) -> list | None:
+    """Return the unique values of the input array, retaining their input order.
+
+    Equal float and int values are not considered distinct.
+
+    Parameters
+    ----------
+    arg : list | None
+        Input list
+
+    Returns
+    -------
+    list | None
+        A list of the unique values form the input list
+
+    """
+    if arg is not None:
+        return list(dict.fromkeys(arg))
+
+
+# Available Binary operations
+bin_ops = {
+    '+': operator.add,
+    '-': operator.sub,
+    '*': operator.mul,
+    '/': operator.truediv,
+    '%': operator.mod,
+    '==': operator.eq,
+    '!=': operator.ne,
+    'in': in_,
+}
+
+# Available Right operations
+right_ops = {'!': operator.not_}
+
+# Available functions
+functions = {
+    'allequal': allequal_,
+    'count': count_,
+    'index': index_,
+    'intersects': intersects_,
+    'length': length_,
+    'match': match_,
+    'max': max_,
+    'min': min_,
+    'sorted': sorted_,
+    'substr': substr_,
+    'type': type_,
+    'unique': unique_,
+}
+
+vals = {
+    'true': True,
+    'false': False,
+    'null': None,
+}
+
+el_namespace = vals | functions
+
+
+class LookupProxy:
+    """Lookup proxy for context class."""
+
+    def __init__(self, *objs):
+        self.objs = objs
+
+    def __getitem__(self, key):
+        for obj in self.objs:
+            if isinstance(obj, dict) and key in obj:
+                return obj[key]
+            if hasattr(obj, key):
+                return getattr(obj, key)
+        raise AttributeError
+
+    # Provide either attr or item lookup
+    __getattr__ = __getitem__
+
+
+def evaluate(expr: bst_expr.ASTNode | float | str, namespace: dict | LookupProxy) -> Any:
+    """Evaluate an expression, with a provided namespace for variable lookup."""
+    match expr:
+        case float() | int():
+            return expr
+        case str() if expr[0] == expr[-1] and expr[0] in ('"', "'"):
+            return expr[1:-1]
+        case str():
+            if isinstance(namespace, dict):
+                return namespace.get(expr, None)
+            return getattr(namespace, expr)
+        case bst_expr.Object():
+            return {}
+        case bst_expr.Array(elements=elements):
+            return [evaluate(el, namespace) for el in elements]
+        case bst_expr.Element(name=name, index=index):
+            el_name = evaluate(name, namespace)
+            if el_name is not None:
+                return el_name[evaluate(index, namespace)]
+        case bst_expr.Property(name=name, field=field):
+            base_object = evaluate(name, namespace)
+            if isinstance(base_object, dict):
+                return base_object.get(field, None)
+            return getattr(base_object, field, None)
+        case bst_expr.Function(name=name, args=args):
+            func = evaluate(name, namespace)
+            return func(*[evaluate(arg, namespace) for arg in args])
+        case bst_expr.BinOp(op=op, lh=lh, rh=rh):
+            match op:
+                # Short-circuiting operators
+                case '||':
+                    return evaluate(lh, namespace) or evaluate(rh, namespace)
+                case '&&':
+                    return evaluate(lh, namespace) and evaluate(rh, namespace)
+                case _:
+                    return bin_ops[op](evaluate(lh, namespace), evaluate(rh, namespace))
+        case bst_expr.RightOp(op=op, rh=rh):
+            return right_ops[op](evaluate(rh, namespace))
+        case _:
+            raise ValueError(f'Expression type {type(expr)} not supported.')
+
+
+def interpret(rule: str, context: Context) -> Any:
+    """Interpret a rule from the schema in a given file context"""
+    namespace = LookupProxy(el_namespace, context)
+    expr = bst_expr.parse(rule)
+    return evaluate(expr, namespace)

@@ -556,8 +556,7 @@ class Context:
                 # Resolve dataset links relative to the dataset path
                 dataset_links = getattr(self.dataset.dataset_description, 'DatasetLinks', {})
                 links = {
-                    key: (fileTree.path_obj / val).resolve()
-                    for key, val in dataset_links.items()
+                    key: (fileTree.path_obj / val).resolve() for key, val in dataset_links.items()
                 }
 
                 # For each uri with another dataset, generate the full path and sum the ones

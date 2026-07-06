@@ -185,7 +185,7 @@ def match_(arg: str | None, pattern: str | None) -> bool | None:
     elif pattern is None:
         return False
 
-    res = re.match(pattern, arg)
+    res = re.search(pattern, arg)
     return res is not None
 
 
@@ -276,7 +276,7 @@ def sorted_(arg: list, method: str | None = None) -> list:
 
             return sorted_vals
         else:
-            return sorted(arg, key=int)
+            return sorted(arg, key=float)
 
 
 def substr_(arg: str | None, start: int | None, end: int | None) -> str | None:

@@ -554,15 +554,18 @@ class Context:
             # Find number of files in other dataset that exist
             if outside_files:
                 # Resolve dataset links relative to the dataset path
+                dataset_links = getattr(self.dataset.dataset_description, 'DatasetLinks', {})
                 links = {
                     key: (fileTree.path_obj / val).resolve()
-                    for key, val in self.dataset.dataset_description.DatasetLinks.items()
+                    for key, val in dataset_links.items()
                 }
 
                 # For each uri with another dataset, generate the full path and sum the ones
                 # that exist
                 other_files = sum(
-                    UPath(links[part[0]], part[1]).exists() for part in outside_files
+                    UPath(links[ds_name], relpath).exists()
+                    for ds_name, relpath in outside_files
+                    if ds_name in links
                 )
             else:
                 other_files = 0

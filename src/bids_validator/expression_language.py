@@ -190,7 +190,7 @@ def match_(arg: str | None, pattern: str | None) -> bool | None:
 
 
 def max_(arg: int | float | list | None) -> int | float | None:
-    """Find the largest numerical value in an array.
+    """Find the largest numeric value in an array.
 
     Parameters
     ----------
@@ -213,7 +213,7 @@ def max_(arg: int | float | list | None) -> int | float | None:
 
 
 def min_(arg: int | float | list | None) -> int | float | None:
-    """Find the smallest numerical value in an array.
+    """Find the smallest numeric value in an array.
 
     Parameters
     ----------
@@ -246,7 +246,7 @@ def sorted_(arg: list, method: str | None = None) -> list:
     arg : list
         Array to sort
     method : str | None, optional
-        Method to sort by, can be "lexical" or "numerical", by default None
+        Method to sort by, can be "lexical" or "numeric", by default None
 
     Returns
     -------
@@ -449,7 +449,7 @@ def evaluate(expr: bst_expr.ASTNode | float | str, namespace: dict | LookupProxy
 
 
 def interpret(rule: str, context: Context) -> Any:
-    """Interpret a rule from the schema in a given file context"""
+    """Interpret a rule from the schema in a given file context."""
     namespace = LookupProxy(el_namespace, context)
     expr = bst_expr.parse(rule)
     return evaluate(expr, namespace)

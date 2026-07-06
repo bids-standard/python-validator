@@ -524,6 +524,7 @@ class Context:
         return Namespace(sidecar)
 
     def exists(self, arg: str | list[str] | None, rule: str | None = 'dataset') -> int:
+        """Count of files in an array that exist in the dataset. String is array with length 1."""
         if arg is None:
             return 0
 

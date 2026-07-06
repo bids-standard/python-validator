@@ -5,6 +5,7 @@ from __future__ import annotations
 import gzip
 import itertools
 from functools import cache
+from upath.core import UPath
 
 import attrs
 import nibabel as nb
@@ -500,13 +501,30 @@ class Context:
 
         if rule == 'bids-uri':
             valid_uris = (uri for uri in arg if uri.startswith('bids:') and uri.count(':') == 2)
-            uri_parts = (uri.split(':') for uri in valid_uris)
+            uri_parts = [uri.split(':') for uri in valid_uris]
+
             # Find number of files in this dataset that exist
+            # Once split these can be processed using dataset rule
             dataset_files = self.exists([part[2] for part in uri_parts if part[1] == ''])
 
-            # Still need to account for bids-uris where middle section is not blank
+            outside_files = [[part[1], part[2]] for part in uri_parts if part[1] != '']
+
             # Find number of files in other dataset that exist
-            other_files = 0
+            if outside_files:
+                # Resolve dataset links relative to the dataset path
+                links = {
+                    key: (fileTree.path_obj / val).resolve()
+                    for key, val in self.dataset.dataset_description.DatasetLinks.items()
+                }
+
+                # For each uri with another dataset, generate the full path and sum the ones
+                # that exist
+                other_files = sum(
+                    UPath(links[part[0]], part[1]).exists()
+                    for part in outside_files
+                )
+            else:
+                other_files = 0
 
             return dataset_files + other_files
         else:

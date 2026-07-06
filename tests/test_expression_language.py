@@ -20,10 +20,8 @@ def memfs() -> Generator[fsspec.AbstractFileSystem, None, None]:
     yield mem
     mem.store.clear()
 
-@pytest.mark.parametrize(
-    ("test"),
-    load_schema().meta.expression_tests
-)
+
+@pytest.mark.parametrize(('test'), load_schema().meta.expression_tests)
 def test_interpret(memfs, tmp_path, schema, test):
     memfs.pipe(
         {
@@ -47,9 +45,3 @@ def test_interpret(memfs, tmp_path, schema, test):
     result = interpret(expr, file_context)
 
     assert result == expected
-
-
-
-
-
-

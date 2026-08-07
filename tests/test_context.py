@@ -210,7 +210,7 @@ def test_load_tsv(synthetic_dataset: FileTree) -> None:
     }
 
     assert tsv_file.keys() == data_set.keys()
-    assert [tsv_file[key] == data_set[key] for key in tsv_file.keys()]
+    assert [tsv_file[key] == data_set[key] for key in tsv_file]
 
 
 def test_load_tsv_gz(synthetic_dataset: FileTree) -> None:

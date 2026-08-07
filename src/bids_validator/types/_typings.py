@@ -1,8 +1,8 @@
 __all__ = (
-    'Self',
     'TYPE_CHECKING',
     'Any',
     'Iterable',
+    'Self',
     'TracebackType',
 )
 

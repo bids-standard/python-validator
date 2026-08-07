@@ -95,9 +95,9 @@ def load_json(file: FileTree) -> dict[str, t.Any]:
 
 def load_image(path: UPath, api: type[ImgT]) -> ImgT:
     """Load neuroimaging file with a given nibabel API."""
-    img = nb.loadsave.load(path)  # type: ignore[arg-type]
+    img = nb.load(path)  # type: ignore[arg-type]
     if not isinstance(img, api):
-        raise ValueError(f'Expected image of type {api}, got {type(img)}')
+        raise TypeError(f'Expected image of type {api}, got {type(img)}')
     return img
 
 
@@ -266,7 +266,7 @@ def find_datatypes(
         if not child_obj.is_dir:
             continue
 
-        if child_name in datatypes.keys():
+        if child_name in datatypes:
             result.add(child_name)
         elif max_depth == 0:
             continue
@@ -395,9 +395,12 @@ class FileParts:
             extension = f'{extension}/'
 
         datatype = None
-        if file.parent and schema:
-            if any(file.parent.name == dtype.value for dtype in schema.objects.datatypes.values()):
-                datatype = file.parent.name
+        if (
+            file.parent
+            and schema
+            and any(file.parent.name == dtype.value for dtype in schema.objects.datatypes.values())
+        ):
+            datatype = file.parent.name
 
         *entity_strings, suffix = stem.split('_')
         entities = {
@@ -509,12 +512,10 @@ class Context:
     @property
     def ome(self) -> None:
         """Parsed contents of OME-XML header, which may be found in OME-TIFF or OME-ZARR files."""
-        pass
 
     @property
     def tiff(self) -> None:
         """TIFF file format metadata."""
-        pass
 
     @property
     def sidecar(self) -> Namespace | None:
@@ -545,8 +546,7 @@ class Sessions:
         for name, value in self._tree.children.items():
             if name.endswith('_sessions.tsv'):
                 return self._get_session_id(value)
-        else:
-            return None
+        return None
 
     @staticmethod
     def _get_session_id(phenotype_file: FileTree) -> list[str] | None:

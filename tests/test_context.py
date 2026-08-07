@@ -289,7 +289,7 @@ def test_exists_dataset(
     schema: Namespace,
     input_arg: str | list[str],
     expected_result: int,
-):
+) -> None:
     dataset = context.Dataset(synthetic_dataset, schema)
 
     file = synthetic_dataset / 'participants.tsv'
@@ -299,29 +299,29 @@ def test_exists_dataset(
     assert file_context.exists(input_arg, 'dataset') == expected_result
 
 
-def test_exists_stimuli(synthetic_dataset: FileTree, schema: Namespace):
+def test_exists_stimuli(synthetic_dataset: FileTree, schema: Namespace) -> None:
     dataset = context.Dataset(synthetic_dataset, schema)
 
     file = synthetic_dataset / 'sub-01' / 'ses-01' / 'beh' / 'sub-01_ses-01_task-stroop_beh.tsv'
 
     file_context = context.Context(file, dataset, None)
+    columns = file_context.columns
+    assert columns is not None
 
-    assert file_context.exists(file_context.columns.stim_file, 'stimuli') == len(
-        file_context.columns.stim_file
-    )
+    assert file_context.exists(columns.stim_file, 'stimuli') == len(columns.stim_file)
     assert file_context.exists('missing_file.jpg', 'stimuli') == 0
 
 
-def test_exists_file(synthetic_dataset: FileTree, schema: Namespace):
+def test_exists_file(synthetic_dataset: FileTree, schema: Namespace) -> None:
     dataset = context.Dataset(synthetic_dataset, schema)
 
     file = synthetic_dataset / 'sub-01' / 'ses-01' / 'sub-01_ses-01_scans.tsv'
 
     file_context = context.Context(file, dataset, None)
+    columns = file_context.columns
+    assert columns is not None
 
-    assert file_context.exists(file_context.columns.filename, 'file') == len(
-        file_context.columns.filename
-    )
+    assert file_context.exists(columns.filename, 'file') == len(columns.filename)
 
 
 @pytest.mark.parametrize(
@@ -331,7 +331,9 @@ def test_exists_file(synthetic_dataset: FileTree, schema: Namespace):
         (Path('sub-01') / 'ses-mri' / 'fmap' / 'sub-01_ses-mri_phasediff.json', 9),
     ],
 )
-def test_exists_subject(examples: Path, schema: Namespace, file_path: Path, expected_result: int):
+def test_exists_subject(
+    examples: Path, schema: Namespace, file_path: Path, expected_result: int
+) -> None:
     ds000117 = FileTree.read_from_filesystem(examples / 'ds000117')
 
     dataset = context.Dataset(ds000117, schema)
@@ -339,11 +341,12 @@ def test_exists_subject(examples: Path, schema: Namespace, file_path: Path, expe
     file = ds000117 / file_path
 
     file_context = context.Context(file, dataset, None)
+    assert file_context.json is not None
 
     assert file_context.exists(file_context.json.IntendedFor, 'subject') == expected_result
 
 
-def test_exists_bidsuri(examples: Path, schema: Namespace):
+def test_exists_bidsuri(examples: Path, schema: Namespace) -> None:
     ds000246 = FileTree.read_from_filesystem(examples / 'ds000246')
 
     dataset = context.Dataset(ds000246, schema)
@@ -351,5 +354,6 @@ def test_exists_bidsuri(examples: Path, schema: Namespace):
     file = ds000246 / 'sub-0001' / 'meg' / 'sub-0001_task-AEF_run-01_meg.json'
 
     file_context = context.Context(file, dataset, None)
+    assert file_context.json is not None
 
     assert file_context.exists(file_context.json.AssociatedEmptyRoom, 'bids-uri') == 1

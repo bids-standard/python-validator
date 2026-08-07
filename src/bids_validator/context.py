@@ -529,7 +529,7 @@ class Context:
             return 0
 
         prefix = UPath()
-        fileTree = self.file.parent if rule == 'file' else self.dataset.tree
+        fileTree: FileTree = self.file.parent if rule == 'file' else self.dataset.tree  # type: ignore[assignment]
 
         if rule == 'stimuli':
             prefix /= 'stimuli'
@@ -571,7 +571,7 @@ class Context:
 
             return dataset_files + other_files
         else:
-            return sum((prefix / file) in fileTree for file in arg)
+            return sum(str(prefix / file) in fileTree for file in arg)
 
 
 class Sessions:

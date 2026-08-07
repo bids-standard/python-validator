@@ -1,16 +1,21 @@
 import json
+import typing as ty
+from collections.abc import Generator
+from pathlib import Path
 
 import fsspec
 import pytest
-
-from collections.abc import Generator
-
 from bidsschematools.schema import load_schema
+from bidsschematools.types.namespace import Namespace
 
 from bids_validator import context
 from bids_validator.expression_language import interpret
-
 from bids_validator.types.files import FileTree
+
+
+class ExpressionTest(ty.TypedDict):
+    expression: str
+    result: ty.Any
 
 
 @pytest.fixture
@@ -22,7 +27,12 @@ def memfs() -> Generator[fsspec.AbstractFileSystem, None, None]:
 
 
 @pytest.mark.parametrize(('test'), load_schema().meta.expression_tests)
-def test_interpret(memfs, tmp_path, schema, test):
+def test_interpret(
+    memfs: fsspec.AbstractFileSystem,
+    tmp_path: Path,
+    schema: Namespace,
+    test: ExpressionTest,
+) -> None:
     memfs.pipe(
         {
             '/dataset_description.json': json.dumps(

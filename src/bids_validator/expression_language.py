@@ -2,14 +2,18 @@
 
 import operator
 import re
-from typing import Any
+from collections.abc import Sequence
+from typing import Any, TypeVar
+from typing import Literal as L
 
 from bidsschematools import expressions as bst_expr
 
 from bids_validator.context import Context
 
+T = TypeVar('T', bound=str | int | float)
 
-def filter_strs(arg: list) -> list:
+
+def filter_strs(arg: list[Any]) -> list[int | float]:
     """Filter non-numeric values from a list.
 
     Parameters
@@ -52,7 +56,7 @@ def in_(a: Any, b: Any) -> bool | None:
     return operator.contains(b, a) if b is not None else None
 
 
-def allequal_(array1: list | None, array2: list | None) -> bool:
+def allequal_(array1: list[object] | None, array2: list[object] | None) -> bool:
     """Determine if two arrays have the same length and paired elements are equal.
 
     Parameters
@@ -77,7 +81,7 @@ def allequal_(array1: list | None, array2: list | None) -> bool:
     return all(a == b for a, b in zip(array1, array2, strict=True))
 
 
-def count_(array: list, val: Any) -> int:
+def count_(array: list[T], val: T) -> int:
     """Count the number of times a value is found in an array.
 
     Parameters
@@ -96,7 +100,7 @@ def count_(array: list, val: Any) -> int:
     return array.count(val)
 
 
-def index_(arg: str | list | None, val: Any | None) -> int | None:
+def index_(arg: Sequence[T] | None, val: T | None) -> int | None:
     """Find the first element of an array or string that is equal to the value provided.
 
     Parameters
@@ -118,8 +122,10 @@ def index_(arg: str | list | None, val: Any | None) -> int | None:
     if val in arg:
         return arg.index(val)
 
+    return None
 
-def intersects_(a: list | None, b: list | None) -> list | bool:
+
+def intersects_(a: list[T] | None, b: list[T] | None) -> list[T] | bool:
     """Find the common values in two arrays.
 
     Parameters
@@ -142,11 +148,11 @@ def intersects_(a: list | None, b: list | None) -> list | bool:
 
     if res:
         return res
-    else:
-        return False
+
+    return False
 
 
-def length_(arg: list | None) -> int | None:
+def length_(arg: list[object] | None) -> int | None:
     """Find the number of elements in an array.
 
     Parameters
@@ -162,6 +168,8 @@ def length_(arg: list | None) -> int | None:
     """
     if arg is not None:
         return len(arg)
+
+    return None
 
 
 def match_(arg: str | None, pattern: str | None) -> bool | None:
@@ -189,7 +197,7 @@ def match_(arg: str | None, pattern: str | None) -> bool | None:
     return res is not None
 
 
-def max_(arg: int | float | list | None) -> int | float | None:
+def max_(arg: int | float | list[int | float] | None) -> int | float | None:
     """Find the largest numeric value in an array.
 
     Parameters
@@ -212,7 +220,7 @@ def max_(arg: int | float | list | None) -> int | float | None:
     return max(filter_strs(arg))
 
 
-def min_(arg: int | float | list | None) -> int | float | None:
+def min_(arg: int | float | list[int | float] | None) -> int | float | None:
     """Find the smallest numeric value in an array.
 
     Parameters
@@ -235,7 +243,7 @@ def min_(arg: int | float | list | None) -> int | float | None:
     return min(filter_strs(arg))
 
 
-def sorted_(arg: list, method: str | None = None) -> list:
+def sorted_(arg: list[T], method: L['lexical', 'numeric'] | None = None) -> list[T]:
     """Return sorted input array.
 
     Defaults to type-determined sort.
@@ -300,6 +308,8 @@ def substr_(arg: str | None, start: int | None, end: int | None) -> str | None:
     if arg is not None and start is not None and end is not None:
         return arg[start:end]
 
+    return None
+
 
 def type_(var: Any) -> str:
     """Evaluate the type of a variable.
@@ -328,7 +338,7 @@ def type_(var: Any) -> str:
             return 'null'
 
 
-def unique_(arg: list | None) -> list | None:
+def unique_(arg: list[T] | None) -> list[T] | None:
     """Return the unique values of the input array, retaining their input order.
 
     Equal float and int values are not considered distinct.
@@ -346,6 +356,8 @@ def unique_(arg: list | None) -> list | None:
     """
     if arg is not None:
         return list(dict.fromkeys(arg))
+
+    return None
 
 
 # Available Binary operations
@@ -391,10 +403,10 @@ el_namespace = vals | functions
 class LookupProxy:
     """Lookup proxy for context class."""
 
-    def __init__(self, *objs):
+    def __init__(self, *objs: dict[str, Any] | Context) -> None:
         self.objs = objs
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: str) -> Any:
         for obj in self.objs:
             if isinstance(obj, dict) and key in obj:
                 return obj[key]
@@ -406,7 +418,7 @@ class LookupProxy:
     __getattr__ = __getitem__
 
 
-def evaluate(expr: bst_expr.ASTNode | float | str, namespace: dict | LookupProxy) -> Any:
+def evaluate(expr: bst_expr.ASTNode | float | str, namespace: object) -> Any:
     """Evaluate an expression, with a provided namespace for variable lookup."""
     match expr:
         case float() | int():

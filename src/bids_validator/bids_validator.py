@@ -14,8 +14,6 @@ import bidsschematools.schema
 import bidsschematools.utils
 import bidsschematools.validator
 
-from .types import _typings as t
-
 
 class LoggingContext:
     # From logging cookbook (CC0):
@@ -62,7 +60,7 @@ class LoggingContext:
         self,
         et: type[BaseException] | None,
         ev: BaseException | None,
-        tb: t.TracebackType,
+        tb: object,
     ) -> None:
         if self.level is not None:
             self.logger.setLevel(self.old_level)

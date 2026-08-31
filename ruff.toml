@@ -39,6 +39,7 @@ ignore = [
   "D213",  # multi-line-summary-first-line
   "Q000",  # double quotes
   "Q003",  # avoidable-escaped-quote
+  "PYI041",  # redundant-numeric-union (float | int is clearer in intent)
 ]
 
 [lint.extend-per-file-ignores]

@@ -20,6 +20,7 @@ VALID = 'sub-01/anat/sub-01_T1w.nii.gz'
 
 def build(root: pathlib.Path, *relpaths: str) -> pathlib.Path:
     """Create a minimal dataset containing the given files."""
+    root.mkdir(parents=True, exist_ok=True)
     (root / 'dataset_description.json').write_text(
         json.dumps({'Name': 'test', 'BIDSVersion': '1.11.1'})
     )
@@ -145,6 +146,36 @@ def test_inheritable_metadata_may_sit_above_the_datatype_directory(
     build(tmp_path, VALID, relpath)
     assert codes(tmp_path, schema) == {}
     assert BIDSValidator().is_bids(f'/{relpath}')
+
+
+def test_derivatives_are_not_checked_against_the_parent_dataset_rules(
+    tmp_path: pathlib.Path, schema: Namespace
+) -> None:
+    """A derivative is a separate dataset; its files must not be judged by raw rules."""
+    build(tmp_path, VALID)
+    deriv = tmp_path / 'derivatives' / 'mypipeline'
+    build(deriv, 'sub-01/anat/sub-01_desc-preproc_T1w.nii.gz', 'logs/run.txt')
+    assert codes(tmp_path, schema) == {}
+
+
+def test_a_derivative_can_be_validated_as_its_own_dataset(
+    tmp_path: pathlib.Path, schema: Namespace
+) -> None:
+    """Pointing the checks at the derivative root makes the derivative rules apply."""
+    deriv = build(tmp_path, VALID) / 'derivatives' / 'mypipeline'
+    build(deriv, 'sub-01/anat/sub-01_desc-preproc_T1w.nii.gz')
+    (deriv / 'dataset_description.json').write_text(
+        json.dumps(
+            {
+                'Name': 'deriv',
+                'BIDSVersion': '1.11.1',
+                'DatasetType': 'derivative',
+                'GeneratedBy': [{'Name': 'mypipeline'}],
+            }
+        )
+    )
+    # desc- is a derivative-only entity, so this name is legal here and nowhere else.
+    assert codes(deriv, schema) == {}
 
 
 def _make_recording(root: pathlib.Path, name: str) -> None:

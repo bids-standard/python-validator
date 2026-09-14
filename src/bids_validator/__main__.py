@@ -8,52 +8,24 @@ except ImportError:
     raise SystemExit(1) from None
 
 import sys
-from collections.abc import Iterator
 from typing import Annotated
 
 from bidsschematools.schema import load_schema
-from bidsschematools.types.context import Subject
 from bidsschematools.types.namespace import Namespace
 
-from bids_validator import BIDSValidator
-from bids_validator.context import Context, Dataset, Sessions
+from bids_validator.filename_checks import collect_filename_issues
+from bids_validator.issues import DatasetIssues, Severity
 from bids_validator.types.files import FileTree
 
 app = typer.Typer()
 
 
-def is_subject_dir(tree: FileTree) -> bool:
-    return tree.name.startswith('sub-')
+def validate(tree: FileTree, schema: Namespace, verbose: bool = False) -> DatasetIssues:
+    """Check every filename in the dataset against the schema and report what is wrong.
 
-
-def walk(tree: FileTree, dataset: Dataset, subject: Subject | None = None) -> Iterator[Context]:
-    """Iterate over children of a FileTree and check if they are a directory or file.
-
-    If it's a directory then run again recursively, if it's a file file check the file name is
-    BIDS compliant.
-
-    Parameters
-    ----------
-    tree : FileTree
-        FileTree object to iterate over
-    dataset: Dataset
-        Object containing properties for entire dataset
-    subject: Subject
-        object containing subject and session info
-
-    """
-    if subject is None and is_subject_dir(tree):
-        subject = Subject(Sessions(tree))
-
-    for child in tree.children.values():
-        if child.is_dir:
-            yield from walk(child, dataset, subject)
-        else:
-            yield Context(child, dataset, subject)
-
-
-def validate(tree: FileTree, schema: Namespace) -> None:
-    """Check if the file path is BIDS compliant.
+    The walk, the rule matching and the findings all come from
+    :func:`~bids_validator.filename_checks.collect_filename_issues`, so the CLI and
+    any library caller run exactly the same checks.
 
     Parameters
     ----------
@@ -61,14 +33,32 @@ def validate(tree: FileTree, schema: Namespace) -> None:
         Full FileTree object to iterate over and check
     schema : Namespace
         Schema object to validate dataset against
+    verbose : bool
+        Also print the schema rule each finding came from
+
+    Returns
+    -------
+    DatasetIssues
+        Every finding, so the caller can set an exit code.
 
     """
-    validator = BIDSValidator()
-    dataset = Dataset(tree, schema)
+    issues = collect_filename_issues(tree, schema)
 
-    for file in walk(tree, dataset):
-        if not validator.is_bids(file.path):
-            print(f'{file.path} is not a valid bids filename')
+    for issue in issues:
+        print(f'{issue.severity.value}: {issue.code}: {issue.location}')
+        if issue.message:
+            print(f'    {issue.message}')
+        if verbose and issue.rule:
+            print(f'    rule: {issue.rule}')
+
+    errors = len(issues.by_severity(Severity.ERROR))
+    warnings = len(issues.by_severity(Severity.WARNING))
+    if issues:
+        print(f'\n{errors} error(s), {warnings} warning(s)')
+    else:
+        print('No filename problems found')
+
+    return issues
 
 
 def show_version() -> None:
@@ -119,7 +109,12 @@ def main(
 
     schema = load_schema(schema_path)
 
-    validate(root_path, schema)
+    issues = validate(root_path, schema, verbose=verbose)
+
+    # A validator is normally run from a script or CI job, so the outcome has to be
+    # readable from the exit code, not only from the printed text.
+    if issues.has_errors:
+        raise typer.Exit(code=1)
 
 
 if __name__ == '__main__':

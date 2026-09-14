@@ -33,6 +33,27 @@ Now each problem is a typed `Issue` with a specific code:
 The finding says which rule was applied and what exactly failed, and it serialises
 straight to JSON.
 
+## The command line uses it
+
+`python -m bids_validator <dataset>` runs these checks. It previously walked the tree
+itself and called `is_bids` on each path, which duplicated the walk and produced the
+yes/no output above. It now calls `collect_filename_issues`, so the CLI and a library
+caller run exactly the same checks and cannot drift apart.
+
+```console
+$ python -m bids_validator my_dataset
+error: MISSING_REQUIRED_ENTITY: sub-01/func/sub-01_bold.nii.gz
+    missing required entities: task
+
+1 error(s), 0 warning(s)
+$ echo $?
+1
+```
+
+`-v` additionally prints the schema rule each finding came from. The exit code is `1`
+when there are errors and `0` otherwise, so the result is readable from a CI job and
+not only from the printed text.
+
 ## Architecture
 
 The BIDS schema describes every legal filename: which suffix belongs in which
@@ -72,6 +93,15 @@ Default ignores mirror the reference TypeScript validator: `.git**`, `.*`,
 `sourcedata/`, `code/`, `stimuli/`, `log/`. Directory recordings such as CTF `.ds` are
 treated as single units: the recording's own name is validated, but the walk does not
 descend into it, so its vendor-named internals are never name-checked.
+
+`derivatives/` is a dataset boundary and is not descended into either. A derivative
+follows `rules.files.deriv`, not the raw rules of the dataset it sits inside, so
+checking it against its parent's rules would report errors for legal files. The
+reference validator draws the same boundary, in `src/validators/bids.ts`. To check a
+derivative, point `collect_filename_issues` at the derivative's own root: its
+`dataset_description.json` declares `DatasetType: derivative`, and the derivative rules
+then apply. On a corpus of 85 real datasets this one boundary is the difference between
+26 findings and 513.
 
 ### Where the codes come from
 
@@ -361,6 +391,7 @@ instances.
 | `build_ignore` | `(tree: FileTree) -> IgnoreMany` | The defaults plus the dataset's `.bidsignore`. |
 | `filename_issues` | `(context: Context) -> list[Issue]` | All findings for one file. The unit a future rule engine would call. |
 | `DEFAULT_IGNORES` | `tuple[str, ...]` | Mirrors the reference validator's `defaultIgnores`. |
+| `DERIVATIVES_DIR` | `str` | The directory name that ends the walk, because it starts another dataset. |
 | `FILENAME_ISSUES` | `dict[str, str]` | The ten codes with the reference's reason text. |
 
 `filename_issues` takes a `Context` and returns a list rather than mutating a

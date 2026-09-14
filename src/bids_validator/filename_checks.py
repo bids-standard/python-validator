@@ -25,10 +25,11 @@ import re
 from collections.abc import Iterator, Mapping
 from typing import TYPE_CHECKING, Any
 
+from bidsschematools.types.context import Subject
 from bidsschematools.types.namespace import Namespace
 
 from .bidsignore import Ignore, IgnoreMany
-from .context import Context, Dataset
+from .context import Context, Dataset, Sessions
 from .issues import DatasetIssues, Issue, Severity
 
 if TYPE_CHECKING:
@@ -37,6 +38,7 @@ if TYPE_CHECKING:
 
 __all__ = [
     'DEFAULT_IGNORES',
+    'DERIVATIVES_DIR',
     'FILENAME_ISSUES',
     'collect_filename_issues',
     'filename_issues',
@@ -48,14 +50,33 @@ __all__ = [
 # directories hold files BIDS does not constrain.
 DEFAULT_IGNORES = ('.git**', '.*', 'sourcedata/', 'code/', 'stimuli/', 'log/')
 
+# A derivative is a separate dataset that happens to live inside another one, and its
+# files follow ``rules.files.deriv`` rather than the raw rules of the dataset around
+# them. Checking a derivative against its parent's rules reports errors for perfectly
+# legal files, so the walk stops at this boundary. The reference validator does the same
+# thing twice over: it drops ``derivatives`` from the tree ("Remove derivatives from the
+# main fileTree", ``src/validators/bids.ts``) and then skips any remaining context whose
+# path contains it while the root dataset is raw.
+#
+# To check a derivative, point :func:`collect_filename_issues` at the derivative's own
+# root. Its ``dataset_description.json`` declares ``DatasetType: derivative``, and the
+# derivative filename rules are then the ones that apply.
+DERIVATIVES_DIR = 'derivatives'
+
 # Extensions the BIDS inheritance principle allows to sit higher in the tree than the
 # data they describe, so they are exempt from the datatype-directory requirement.
 INHERITABLE_EXTENSIONS = frozenset({'.json', '.tsv'})
 
-# The filename/path codes this module can emit, with the reference validator's
-# reason text. Every one is an error; the reference defines no filename warnings.
+# The filename/path codes this module can emit. Every one is an error; the reference
+# defines no filename warnings.
+#
+# NOT_INCLUDED is the one code the BIDS schema itself defines, at rules.errors, so it is
+# read from there at runtime by _schema_error rather than repeated here. The other nine
+# appear nowhere in the schema (verified against every leaf of schema.json); they come
+# from the reference validator's catalog in src/issues/list.ts, and are mirrored here so
+# the provenance is explicit and the output stays interchangeable.
 FILENAME_ISSUES: dict[str, str] = {
-    'NOT_INCLUDED': 'Files with such naming scheme are not part of BIDS specification.',
+    'NOT_INCLUDED': '(defined by the schema at rules.errors.NotIncluded)',
     'ENTITY_WITH_NO_LABEL': 'Found an entity with no label.',
     'INVALID_ENTITY_LABEL': ("entity label doesn't match format found for files with this suffix"),
     'MISSING_REQUIRED_ENTITY': 'Missing required entity for files with this suffix.',
@@ -178,12 +199,14 @@ def filename_issues(context: Context) -> list[Issue]:
 
     matched = _find_rule_matches(schema, context)
     if not matched:
+        # The schema defines this one, so take its code, level and wording from there.
+        code, severity, message = _schema_error(schema, 'NotIncluded')
         return [
             Issue(
-                code='NOT_INCLUDED',
-                severity=Severity.ERROR,
+                code=code,
+                severity=severity,
                 location=relpath,
-                message=f'{context.file.name} does not match any BIDS naming rule',
+                message=message or f'{context.file.name} does not match any BIDS naming rule',
             )
         ]
 
@@ -207,7 +230,11 @@ def filename_issues(context: Context) -> list[Issue]:
 
 
 def _walk(
-    tree: FileTree, dataset: Dataset, recordings: set[str], ignore: HasMatch
+    tree: FileTree,
+    dataset: Dataset,
+    recordings: set[str],
+    ignore: HasMatch,
+    subject: Subject | None = None,
 ) -> Iterator[Context]:
     """Yield one Context per file, depth first, skipping ignored paths.
 
@@ -215,19 +242,32 @@ def _walk(
     ``.mefd``, OME-Zarr) is one recording, not a folder of files. It is yielded so its
     own name is validated, but the walk does not descend, so its vendor-named internals
     are never name-checked.
+
+    A :data:`DERIVATIVES_DIR` directory is a dataset boundary and is not descended into
+    at all, since the rules on the far side of it are different ones.
+
+    Each context carries the :class:`Subject` of the enclosing ``sub-*`` directory, so
+    later content checks have it without a second walk.
     """
+    # Entering a sub-* directory establishes the subject every file below it belongs to.
+    if subject is None and tree.name.startswith('sub-'):
+        subject = Subject(Sessions(tree))
+
     for child in tree.children.values():
         if ignore.match(child.relative_path):
             continue
         if child.is_dir:
+            if child.name == DERIVATIVES_DIR:
+                # A separate dataset with separate rules. See DERIVATIVES_DIR.
+                continue
             if any(child.name.endswith(ext) for ext in recordings):
                 # A directory recording is one unit: its NAME is checked like a file's,
                 # but its vendor-named internals are not, so yield it without descending.
-                yield Context(child, dataset, None)
+                yield Context(child, dataset, subject)
                 continue
-            yield from _walk(child, dataset, recordings, ignore)
+            yield from _walk(child, dataset, recordings, ignore, subject)
         else:
-            yield Context(child, dataset, None)
+            yield Context(child, dataset, subject)
 
 
 # --- rule identification --------------------------------------------------
@@ -695,6 +735,22 @@ def _short(schema: Namespace, long_name: str) -> str:
     if long_name in entities:
         return str(entities[long_name].get('name', long_name))
     return long_name
+
+
+def _schema_error(schema: Namespace, name: str) -> tuple[str, Severity, str | None]:
+    """Read a schema-defined error from ``rules.errors``, as (code, severity, message).
+
+    A handful of structural errors are defined by the schema itself, so their code,
+    level and wording belong to it rather than to us. Falls back to the entry's own name
+    and ``error`` if the schema does not define it, which keeps an older schema working.
+    """
+    entry = schema['rules'].get('errors', {}).get(name, {})
+    code = str(entry.get('code', name))
+    level = str(entry.get('level', 'error'))
+    severity = Severity.WARNING if level == 'warning' else Severity.ERROR
+    message = entry.get('message')
+    # Schema messages are multi-line YAML blocks; a finding's message is one line.
+    return code, severity, ' '.join(str(message).split()) if message else None
 
 
 def _directory_recordings(schema: Namespace) -> set[str]:

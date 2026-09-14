@@ -85,6 +85,20 @@ _DIR_RECORDING_MEMO: dict[int, set[str]] = {}
 
 
 # --- public API -----------------------------------------------------------
+#
+# Four entry points, from coarsest to finest:
+#
+#   collect_filename_issues(tree, schema) -> DatasetIssues
+#       Validate a whole dataset. This is what most callers want.
+#   iter_contexts(dataset)                -> Iterator[Context]
+#       Walk the dataset, yielding the files worth checking.
+#   build_ignore(tree)                    -> IgnoreMany
+#       The ignore matcher those two use.
+#   filename_issues(context)              -> list[Issue]
+#       Check a single file. The unit a future rule engine would call.
+#
+# Only the first is needed to validate a dataset; the rest are exposed so callers
+# can reuse the walk, the ignore rules, or the per-file check on their own.
 
 
 def collect_filename_issues(tree: FileTree, schema: Namespace) -> DatasetIssues:
@@ -103,8 +117,11 @@ def collect_filename_issues(tree: FileTree, schema: Namespace) -> DatasetIssues:
         Every filename/path finding, in tree order.
 
     """
+    # Dataset pairs the file tree with the schema and caches dataset_description.json,
+    # which the checks need to know whether derivative rules apply.
     dataset = Dataset(tree, schema)
     issues = DatasetIssues()
+    # One file at a time: build its facts, check them, add whatever came back.
     for context in iter_contexts(dataset):
         issues.extend(filename_issues(context))
     return issues
@@ -115,8 +132,8 @@ def iter_contexts(dataset: Dataset, ignore: HasMatch | None = None) -> Iterator[
 
     Skips anything the dataset's ``.bidsignore`` or :data:`DEFAULT_IGNORES` match.
     Directory recordings (CTF ``.ds``, MEF ``.mefd``, OME-Zarr ...) are single units:
-    the walk does not descend into them, so their internal files are not name-checked
-    individually.
+    the recording itself is yielded so its own name is validated, but the walk does not
+    descend, so its vendor-named internals are never name-checked.
     """
     if ignore is None:
         ignore = build_ignore(dataset.tree)
@@ -125,7 +142,12 @@ def iter_contexts(dataset: Dataset, ignore: HasMatch | None = None) -> Iterator[
 
 
 def build_ignore(tree: FileTree) -> IgnoreMany:
-    """Build the ignore matcher: the reference defaults plus the dataset's .bidsignore."""
+    """Build the ignore matcher: the reference defaults plus the dataset's .bidsignore.
+
+    Both halves matter. Without :data:`DEFAULT_IGNORES` every ``.DS_Store`` and hidden
+    file would be reported, which the reference validator never does; without the
+    dataset's own ``.bidsignore`` the user cannot exempt their own extra files.
+    """
     ignores = [Ignore(list(DEFAULT_IGNORES))]
     bidsignore = tree.children.get('.bidsignore')
     if bidsignore is not None:
@@ -136,16 +158,23 @@ def build_ignore(tree: FileTree) -> IgnoreMany:
 def filename_issues(context: Context) -> list[Issue]:
     """Return every filename/path finding for one file.
 
-    Identifies the ``rules.files`` rule(s) the file matches, then checks it against
-    them. An unmatched file is ``NOT_INCLUDED``; a matched one is checked for entity,
-    datatype, extension, location, and ordering problems.
+    The heart of the module. Three steps:
+
+    1. Find which ``rules.files`` rule or rules the file matches. None means the file
+       is not BIDS at all, reported as ``NOT_INCLUDED``.
+    2. Narrow several matches down to the best candidate.
+    3. Run each check family, concatenating the findings.
+
+    Works for a directory recording too. ``FileParts`` gives a directory a trailing
+    slash in its extension (``.ds/``), which is exactly how the schema spells those
+    extensions, so the ordinary rules apply to the folder's name.
+
+    ``context`` carries everything known about the one file: its path, the entities,
+    suffix and extension parsed from its name, the datatype folder it sits in, and a
+    link back to the dataset and schema. Nothing here opens the file.
     """
     schema = context.schema
     relpath = context.file.relative_path
-
-    # A directory recording is a unit, not a name to parse.
-    if any(context.file.name.endswith(ext) for ext in _directory_recordings(schema)):
-        return []
 
     matched = _find_rule_matches(schema, context)
     if not matched:
@@ -158,13 +187,19 @@ def filename_issues(context: Context) -> list[Issue]:
             )
         ]
 
+    # Several rules can match one name; keep the best candidate(s).
     matched = _narrow(schema, context, matched)
+
+    # Each check returns a list, so the findings simply add up. The code each one can
+    # emit is named alongside it.
     issues: list[Issue] = []
-    issues += _missing_label(context, matched)
-    issues += _entity_label_check(schema, context)
-    issues += _check_rules(schema, context, matched)
-    issues += _missing_datatype_directory(context, matched)
-    issues += _reconstruction_failure(schema, context)
+    issues += _missing_label(context, matched)  # ENTITY_WITH_NO_LABEL
+    issues += _entity_label_check(schema, context)  # INVALID_ENTITY_LABEL
+    issues += _check_rules(schema, context, matched)  # MISSING_REQUIRED_ENTITY,
+    # ENTITY_NOT_IN_RULE, DATATYPE_MISMATCH, EXTENSION_MISMATCH, INVALID_LOCATION,
+    # ALL_FILENAME_RULES_HAVE_ISSUES
+    issues += _missing_datatype_directory(context, matched)  # INVALID_LOCATION
+    issues += _reconstruction_failure(schema, context)  # FILENAME_MISMATCH
     return issues
 
 
@@ -174,12 +209,22 @@ def filename_issues(context: Context) -> list[Issue]:
 def _walk(
     tree: FileTree, dataset: Dataset, recordings: set[str], ignore: HasMatch
 ) -> Iterator[Context]:
+    """Yield one Context per file, depth first, skipping ignored paths.
+
+    A directory whose name ends in a directory-recording extension (CTF ``.ds``, MEF
+    ``.mefd``, OME-Zarr) is one recording, not a folder of files. It is yielded so its
+    own name is validated, but the walk does not descend, so its vendor-named internals
+    are never name-checked.
+    """
     for child in tree.children.values():
         if ignore.match(child.relative_path):
             continue
         if child.is_dir:
             if any(child.name.endswith(ext) for ext in recordings):
-                continue  # a directory recording: do not descend
+                # A directory recording is one unit: its NAME is checked like a file's,
+                # but its vendor-named internals are not, so yield it without descending.
+                yield Context(child, dataset, None)
+                continue
             yield from _walk(child, dataset, recordings, ignore)
         else:
             yield Context(child, dataset, None)
@@ -202,6 +247,11 @@ def _file_rules(schema: Namespace) -> list[tuple[str, Mapping[str, Any]]]:
 
 
 def _collect(node: Any, path: str, out: list[tuple[str, Mapping[str, Any]]]) -> None:
+    """Collect leaf rules under ``node`` into ``out`` as ``(dotted_path, rule)`` pairs.
+
+    A node is a leaf when it carries ``path``, ``stem`` or ``suffixes``. Anything else is
+    a grouping level to descend into.
+    """
     if not _is_mapping(node):
         return
     if 'path' in node or 'stem' in node or 'suffixes' in node:
@@ -212,6 +262,11 @@ def _collect(node: Any, path: str, out: list[tuple[str, Mapping[str, Any]]]) -> 
 
 
 def _find_rule_matches(schema: Namespace, context: Context) -> list[tuple[str, Mapping[str, Any]]]:
+    """Return every ``rules.files`` rule the file matches.
+
+    Several rules can match one name; :func:`_narrow` picks between them. An empty
+    result means the file is not BIDS at all, reported as ``NOT_INCLUDED``.
+    """
     dataset_type = _dataset_type(context)
     out: list[tuple[str, Mapping[str, Any]]] = []
     for path, node in _file_rules(schema):
@@ -224,6 +279,11 @@ def _find_rule_matches(schema: Namespace, context: Context) -> list[tuple[str, M
 
 
 def _rule_matches(node: Mapping[str, Any], context: Context) -> bool:
+    """Return whether one rule applies, by exact path, stem glob, or suffix.
+
+    Suffix matching deliberately ignores the datatype, mirroring the TypeScript
+    validator, which is why a misplaced file still matches a rule.
+    """
     if 'path' in node and '/' + str(node['path']) == context.path:
         return True
     if 'stem' in node and _match_stem(node, context):
@@ -232,6 +292,10 @@ def _rule_matches(node: Mapping[str, Any], context: Context) -> bool:
 
 
 def _match_stem(node: Mapping[str, Any], context: Context) -> bool:
+    """Return whether the file's stem matches the rule's glob, and its datatype if named.
+
+    Used by fixed-name rules such as ``participants`` and ``*_scans``.
+    """
     stem = context.file.name.split('.')[0]
     if not fnmatch.fnmatchcase(stem, str(node['stem'])):
         return False
@@ -258,6 +322,10 @@ def _narrow(
 
 
 def _entities_extensions_fit(schema: Namespace, context: Context, rule: Mapping[str, Any]) -> bool:
+    """Return whether the extension is allowed and the entities fit within the rule.
+
+    The second tie-breaker in :func:`_narrow`, used when the datatype did not settle it.
+    """
     ext_ok = 'extensions' not in rule or context.extension in list(rule['extensions'])
     if 'entities' not in rule:
         return ext_ok
@@ -315,6 +383,12 @@ def _entity_label_check(schema: Namespace, context: Context) -> list[Issue]:
 def _check_rules(
     schema: Namespace, context: Context, matched: list[tuple[str, Mapping[str, Any]]]
 ) -> list[Issue]:
+    """Check the file against the matched rule or rules and return the findings.
+
+    With one candidate, report its problems directly. With several, accept the file if
+    any candidate is satisfied cleanly; only when every candidate has a problem is
+    ``ALL_FILENAME_RULES_HAVE_ISSUES`` reported.
+    """
     if len(matched) == 1:
         return _rule_issues(schema, context, matched[0])
     # Several rules still match: if any matches cleanly, accept it; otherwise report
@@ -335,6 +409,11 @@ def _check_rules(
 def _rule_issues(
     schema: Namespace, context: Context, matched: tuple[str, Mapping[str, Any]]
 ) -> list[Issue]:
+    """Run the four rule-scoped checks for one candidate rule.
+
+    Entities, datatype directory, extension, and placement within the subject or
+    session hierarchy.
+    """
     path, rule = matched
     issues: list[Issue] = []
     issues += _entity_rule_issues(schema, context, path, rule)
@@ -438,6 +517,12 @@ def _invalid_location(context: Context) -> list[Issue]:
 def _validate_location(
     entities: Mapping[str, str], path: str, context: Context, top: str, sub: str
 ) -> list[Issue]:
+    """Check one folder hierarchy for placement problems.
+
+    ``top``/``sub`` is either ``sub``/``ses`` or ``tpl``/``cohort``. Reports when the
+    file is not under the folders its own entities name, or when it sits in such a
+    folder without the matching entity in its name.
+    """
     issues: list[Issue] = []
     top_val = entities.get(top)
     sub_val = entities.get(sub)
@@ -455,12 +540,35 @@ def _validate_location(
 
 
 def _location_issue(context: Context, detail: str) -> Issue:
+    """Build one ``INVALID_LOCATION`` finding, with ``detail`` explaining the placement."""
     return Issue(
         code='INVALID_LOCATION',
         severity=Severity.ERROR,
         location=context.file.relative_path,
         message=f'the file has a valid name but is in the wrong place ({detail})',
     )
+
+
+def _at_inheritance_level(relpath: str) -> bool:
+    """Report whether the file sits at a level the inheritance principle allows.
+
+    The principle lets a sidecar sit ABOVE the data it describes: at the dataset
+    root, beside a subject, or beside a session. Those are the three places, and
+    in each the file sits DIRECTLY in that folder.
+
+    A ``.json`` inside ``sub-01/ses-pre/awwww/`` inherits nothing. It is in a
+    folder BIDS does not read, exactly as lost as the image beside it, so
+    exempting it for its extension reported only half of what was wrong.
+    """
+    parts = [p for p in relpath.strip('/').split('/') if p]
+    depth = 0
+    if depth < len(parts) and parts[depth].startswith('sub-'):
+        depth += 1
+        if depth < len(parts) and parts[depth].startswith('ses-'):
+            depth += 1
+    # What remains should be the filename alone; more means the file sits inside
+    # a container directory, and that container is not a datatype.
+    return len(parts) - depth <= 1
 
 
 def _missing_datatype_directory(
@@ -480,8 +588,10 @@ def _missing_datatype_directory(
     """
     if context.datatype is not None:
         return []  # the file is in a recognised datatype directory
-    if context.extension in INHERITABLE_EXTENSIONS:
-        return []  # metadata may be inherited from a higher level
+    if context.extension in INHERITABLE_EXTENSIONS and _at_inheritance_level(
+        context.file.relative_path
+    ):
+        return []  # metadata legitimately sitting above the data it describes
     if not matched or not all('datatypes' in node for _path, node in matched):
         return []  # this file type is not required to live in a datatype directory
     return [
@@ -514,7 +624,11 @@ def _reconstruction_failure(schema: Namespace, context: Context) -> list[Issue]:
         return []
     ordered = [short for short in _ordered_short(schema) if short in entities]
     parts = [f'{short}-{entities[short]}' for short in ordered]
-    expected = '_'.join([*parts, (context.suffix or '') + (context.extension or '')])
+    # A directory recording's extension carries a trailing slash (``.ds/``) because that
+    # is how the schema spells it, but the folder on disk is named without one. Drop it
+    # so the rebuilt name is comparable, and readable in the message.
+    extension = (context.extension or '').rstrip('/')
+    expected = '_'.join([*parts, (context.suffix or '') + extension])
     if context.file.name != expected:
         return [
             Issue(
@@ -542,6 +656,11 @@ def _entities(context: Context) -> dict[str, str]:
 
 
 def _entity_by_short(schema: Namespace) -> dict[str, Mapping[str, Any]]:
+    """Map entity short names to their schema definitions, memoised per schema.
+
+    Filenames use short names such as ``acq`` while the schema keys entities by long
+    name such as ``acquisition``, so this is the bridge between the two.
+    """
     cached = _ENTITY_BY_SHORT_MEMO.get(id(schema))
     if cached is not None:
         return cached
@@ -571,6 +690,7 @@ def _ordered_short(schema: Namespace) -> list[str]:
 
 
 def _short(schema: Namespace, long_name: str) -> str:
+    """Convert an entity's long schema name to the short form used in filenames."""
     entities = schema['objects']['entities']
     if long_name in entities:
         return str(entities[long_name].get('name', long_name))
@@ -595,6 +715,11 @@ def _directory_recordings(schema: Namespace) -> set[str]:
 
 
 def _dataset_type(context: Context) -> str:
+    """Return the dataset's ``DatasetType``, defaulting to ``raw``.
+
+    Decides whether derivative-only filename rules apply. A missing or unreadable
+    ``dataset_description.json`` degrades to ``raw`` rather than aborting the run.
+    """
     try:
         description = context.dataset.dataset_description
     except (KeyError, OSError, ValueError):
@@ -603,4 +728,9 @@ def _dataset_type(context: Context) -> str:
 
 
 def _is_mapping(node: Any) -> bool:
+    """Return whether ``node`` behaves like a mapping.
+
+    ``Namespace`` is dict-like but is not always a ``Mapping`` instance, so both are
+    accepted.
+    """
     return isinstance(node, Mapping) or hasattr(node, 'keys')

@@ -69,8 +69,9 @@ flowchart TD
 ```
 
 Default ignores mirror the reference TypeScript validator: `.git**`, `.*`,
-`sourcedata/`, `code/`, `stimuli/`, `log/`. Directory recordings such as CTF `.ds`
-are treated as single units and are not name-checked inside.
+`sourcedata/`, `code/`, `stimuli/`, `log/`. Directory recordings such as CTF `.ds` are
+treated as single units: the recording's own name is validated, but the walk does not
+descend into it, so its vendor-named internals are never name-checked.
 
 ### Where the codes come from
 
@@ -440,9 +441,12 @@ a parallel model would drift.
    producing zero findings.
 5. **Default ignores mirrored from the reference.** Without them dotfiles such as
    `.DS_Store` are reported, which the reference never does.
-6. **Directory recordings are units.** The walk does not descend into `.ds` and
-   friends, and does not name-check them, so their internal files never appear as
-   findings.
+6. **Directory recordings are units, but their names still count.** A CTF `.ds` is one
+   recording, so the walk does not descend into it and its vendor-named internals never
+   appear as findings. The folder's own name is validated like any other, because
+   `sub-01_task-rest_meg.ds` must follow the BIDS rules. `FileParts` gives a directory
+   the trailing slash the schema uses for these extensions (`.ds/`), so the ordinary
+   rules apply unchanged.
 7. **Root files are exempt from required-entity checks.** A file at the dataset root
    is a shared sidecar inherited downward, so requiring `sub` there would be wrong.
    The test is `'/' in context.file.relative_path`.

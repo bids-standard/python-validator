@@ -145,3 +145,38 @@ def test_inheritable_metadata_may_sit_above_the_datatype_directory(
     build(tmp_path, VALID, relpath)
     assert codes(tmp_path, schema) == {}
     assert BIDSValidator().is_bids(f'/{relpath}')
+
+
+def _make_recording(root: pathlib.Path, name: str) -> None:
+    """Create a CTF-style directory recording with a vendor-named internal file."""
+    recording = root / 'sub-01' / 'meg' / name
+    recording.mkdir(parents=True)
+    (recording / 'x.meg4').write_bytes(b'')
+    (recording / 'BadChannels').write_bytes(b'')
+
+
+def test_directory_recording_with_a_valid_name_is_clean(
+    tmp_path: pathlib.Path, schema: Namespace
+) -> None:
+    """The folder name is valid, and its vendor-named internals are never checked."""
+    build(tmp_path)
+    _make_recording(tmp_path, 'sub-01_task-rest_meg.ds')
+    assert codes(tmp_path, schema) == {}
+
+
+@pytest.mark.parametrize(
+    ('name', 'expected'),
+    [
+        ('oopsbadname.ds', 'NOT_INCLUDED'),  # not a BIDS name at all
+        ('sub-01_meg.ds', 'MISSING_REQUIRED_ENTITY'),  # missing the required task
+    ],
+)
+def test_directory_recording_name_is_validated(
+    tmp_path: pathlib.Path, schema: Namespace, name: str, expected: str
+) -> None:
+    """A directory recording is one unit, but its own name still follows the rules."""
+    build(tmp_path)
+    _make_recording(tmp_path, name)
+    found = codes(tmp_path, schema)
+    assert expected in found, f'{name} should raise {expected}, got {sorted(found)}'
+    assert f'sub-01/meg/{name}/' in found[expected]

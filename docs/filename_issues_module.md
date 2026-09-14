@@ -33,26 +33,155 @@ Now each problem is a typed `Issue` with a specific code:
 The finding says which rule was applied and what exactly failed, and it serialises
 straight to JSON.
 
-## The command line uses it
+## Using the command line
 
 `python -m bids_validator <dataset>` runs these checks. It previously walked the tree
 itself and called `is_bids` on each path, which duplicated the walk and produced the
 yes/no output above. It now calls `collect_filename_issues`, so the CLI and a library
-caller run exactly the same checks and cannot drift apart.
+caller run the same checks by construction and cannot drift apart.
+
+```
+Usage: python -m bids_validator [OPTIONS] {bids_path}
+
+Arguments:
+  bids_path  <str>  [required]
+
+Options:
+  --schema-path  <str>  Validate against a schema other than the bundled one
+  --verbose  -v         Also print the schema rule behind each finding
+  --version             Show the version and exit
+  --help                Show this message and exit
+```
+
+### Checking a dataset
 
 ```console
 $ python -m bids_validator my_dataset
+error: NOT_INCLUDED: sub-01/notes.txt
+    Files with such naming scheme are not part of BIDS specification. This error is most commonly caused by typos in filenames that make them not BIDS compatible. Please consult the specification and make sure your files are named correctly.
+error: INVALID_ENTITY_LABEL: sub-01/anat/sub-01_acq-a!b_T1w.nii.gz
+    label 'a!b' for entity 'acq' does not match /[0-9a-zA-Z+]+/
 error: MISSING_REQUIRED_ENTITY: sub-01/func/sub-01_bold.nii.gz
     missing required entities: task
 
-1 error(s), 0 warning(s)
+3 error(s), 0 warning(s)
+```
+
+Each finding is three fields on one line, then the detail indented beneath:
+
+```
+severity: CODE: location
+    message
+```
+
+A clean dataset says so explicitly rather than printing nothing:
+
+```console
+$ python -m bids_validator my_clean_dataset
+No filename problems found
+```
+
+### Seeing which rule fired
+
+`-v` appends the schema path the finding came from, so a reader can go and check the
+standard instead of taking the message on trust.
+
+```console
+$ python -m bids_validator my_dataset -v
+...
+error: MISSING_REQUIRED_ENTITY: sub-01/func/sub-01_bold.nii.gz
+    missing required entities: task
+    rule: rules.files.raw.func.func
+
+3 error(s), 0 warning(s)
+```
+
+### Exit codes
+
+| Code | Meaning |
+|---|---|
+| `0` | No errors. Warnings may still have been printed. |
+| `1` | At least one error. |
+
+So the result is readable from a script or CI job and not only from the printed text:
+
+```console
+$ python -m bids_validator my_dataset
 $ echo $?
 1
 ```
 
-`-v` additionally prints the schema rule each finding came from. The exit code is `1`
-when there are errors and `0` otherwise, so the result is readable from a CI job and
-not only from the printed text.
+```bash
+# fail a build when the dataset is not valid
+python -m bids_validator "$DATASET" || exit 1
+
+# or branch on it
+if python -m bids_validator "$DATASET" > report.txt; then
+    echo "filenames are fine"
+else
+    echo "problems found:"; cat report.txt
+fi
+```
+
+```yaml
+# in GitHub Actions, a non-zero exit fails the step automatically
+- name: Validate BIDS filenames
+  run: python -m bids_validator ./my_dataset
+```
+
+### Checking a derivative
+
+`derivatives/` is skipped when checking the dataset around it, because a derivative
+follows different rules (see the section above). Point the CLI at the derivative's own
+root to check it on its own terms:
+
+```console
+$ python -m bids_validator my_dataset/derivatives/mypipeline
+No filename problems found
+```
+
+### Validating against a different schema
+
+By default the schema bundled with `bidsschematools` is used. `--schema-path` accepts
+another one, which is how you check a dataset against a newer or older version of the
+standard. It takes the schema's YAML directory (or a single YAML file), not a built
+`schema.json`:
+
+```console
+$ python -m bids_validator my_dataset --schema-path ~/bids-specification/src/schema
+```
+
+Because every check reads the schema rather than hardcoding BIDS knowledge, pointing at
+a different schema is all that is needed to validate against a different version of the
+standard.
+
+### Doing the same thing from Python
+
+The CLI is a thin wrapper, so anything it does is available directly, with the findings
+as objects rather than text:
+
+```python
+from bidsschematools.schema import load_schema
+
+from bids_validator.filename_checks import collect_filename_issues
+from bids_validator.issues import Severity
+from bids_validator.types.files import FileTree
+
+issues = collect_filename_issues(
+    FileTree.read_from_filesystem('my_dataset'), load_schema()
+)
+
+for issue in issues:
+    print(issue.code, issue.location, issue.severity, issue.rule)
+
+errors = issues.by_severity(Severity.ERROR)
+if issues.has_errors:
+    raise SystemExit(f'{len(errors)} filename error(s)')
+```
+
+`docs/example_filename_issues.py` is a runnable version of this. With no arguments it
+generates a dataset containing one example of every issue code; given a path, it
+validates that dataset instead.
 
 ## Architecture
 

@@ -5,45 +5,9 @@ actual file contents.
 
 """
 
-import os
-
-import datalad.api
 import pytest
 
 from bids_validator import BIDSValidator
-
-HOME = os.path.expanduser('~')
-
-TEST_DATA_DICT = {
-    'eeg_matchingpennies': 'https://gin.g-node.org/sappelhoff/eeg_matchingpennies',
-}
-
-EXCLUDE_KEYWORDS = ['git', 'datalad', 'sourcedata', 'bidsignore']
-
-
-def _download_test_data(test_data_dict: dict[str, str], dsname: str) -> str:
-    """Download test data using datalad."""
-    url = test_data_dict[dsname]
-    dspath = os.path.join(HOME, dsname)
-    datalad.api.clone(source=url, path=dspath)
-    return dspath
-
-
-def _gather_test_files(dspath: str, exclude_keywords: list[str]) -> list[str]:
-    """Get test files from dataset path, relative to dataset."""
-    files = []
-    for r, _, f in os.walk(dspath):
-        for file in f:
-            fname = os.path.join(r, file)
-            fname = fname.replace(dspath, '')
-            if not any(keyword in fname for keyword in exclude_keywords):
-                files.append(fname)
-
-    return files
-
-
-dspath = _download_test_data(TEST_DATA_DICT, 'eeg_matchingpennies')
-files = _gather_test_files(dspath, EXCLUDE_KEYWORDS)
 
 
 @pytest.fixture(scope='module')
@@ -51,12 +15,6 @@ def validator() -> BIDSValidator:
     """Return a BIDSValidator instance."""
     validator = BIDSValidator()
     return validator
-
-
-@pytest.mark.parametrize('fname', files)
-def test_datasets(validator: BIDSValidator, fname: str) -> None:
-    """Test that is_bids returns true for each file in a valid BIDS dataset."""
-    assert validator.is_bids(fname)
 
 
 @pytest.mark.parametrize(

@@ -41,7 +41,10 @@ from bids_validator import BIDSValidator
 
 validator = BIDSValidator()
 
-filepaths = ["/sub-01/anat/sub-01_rec-CSD_T1w.nii.gz", "/sub-01/anat/sub-01_acq-23_rec-CSD_T1w.exe"]
+filepaths = [
+    '/sub-01/anat/sub-01_rec-CSD_T1w.nii.gz',
+    '/sub-01/anat/sub-01_acq-23_rec-CSD_T1w.exe',
+]
 for filepath in filepaths:
     print(validator.is_bids(filepath))  # will print True, and then False
 ```

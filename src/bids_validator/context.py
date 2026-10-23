@@ -95,9 +95,9 @@ def load_json(file: FileTree) -> dict[str, t.Any]:
 
 def load_image(path: UPath, api: type[ImgT]) -> ImgT:
     """Load neuroimaging file with a given nibabel API."""
-    img = nb.loadsave.load(path)  # type: ignore[arg-type]
+    img = nb.load(path)  # type: ignore[arg-type]
     if not isinstance(img, api):
-        raise ValueError(f'Expected image of type {api}, got {type(img)}')
+        raise TypeError(f'Expected image of type {api}, got {type(img)}')
     return img
 
 
@@ -266,7 +266,7 @@ def find_datatypes(
         if not child_obj.is_dir:
             continue
 
-        if child_name in datatypes.keys():
+        if child_name in datatypes:
             result.add(child_name)
         elif max_depth == 0:
             continue
@@ -395,9 +395,12 @@ class FileParts:
             extension = f'{extension}/'
 
         datatype = None
-        if file.parent and schema:
-            if any(file.parent.name == dtype.value for dtype in schema.objects.datatypes.values()):
-                datatype = file.parent.name
+        if (
+            file.parent
+            and schema
+            and any(file.parent.name == dtype.value for dtype in schema.objects.datatypes.values())
+        ):
+            datatype = file.parent.name
 
         *entity_strings, suffix = stem.split('_')
         entities = {
@@ -509,12 +512,10 @@ class Context:
     @property
     def ome(self) -> None:
         """Parsed contents of OME-XML header, which may be found in OME-TIFF or OME-ZARR files."""
-        pass
 
     @property
     def tiff(self) -> None:
         """TIFF file format metadata."""
-        pass
 
     @property
     def sidecar(self) -> Namespace | None:
@@ -522,6 +523,56 @@ class Context:
         sidecar = load_sidecar(self.file) or {}
 
         return Namespace(sidecar)
+
+    def exists(self, arg: str | list[str] | None, rule: str | None = 'dataset') -> int:
+        """Count of files in an array that exist in the dataset. String is array with length 1."""
+        if arg is None:
+            return 0
+
+        prefix = UPath()
+        fileTree: FileTree = self.file.parent if rule == 'file' else self.dataset.tree  # type: ignore[assignment]
+
+        if rule == 'stimuli':
+            prefix /= 'stimuli'
+        elif rule == 'subject':
+            if 'sub' not in self.entities:
+                return 0
+            prefix /= f'sub-{self.entities["sub"]}'
+
+        if isinstance(arg, str):
+            arg = [arg]
+
+        if rule == 'bids-uri':
+            valid_uris = (uri for uri in arg if uri.startswith('bids:') and uri.count(':') == 2)
+            uri_parts = [uri.split(':') for uri in valid_uris]
+
+            # Find number of files in this dataset that exist
+            # Once split these can be processed using dataset rule
+            dataset_files = self.exists([part[2] for part in uri_parts if part[1] == ''])
+
+            outside_files = [[part[1], part[2]] for part in uri_parts if part[1] != '']
+
+            # Find number of files in other dataset that exist
+            if outside_files:
+                # Resolve dataset links relative to the dataset path
+                dataset_links = getattr(self.dataset.dataset_description, 'DatasetLinks', {})
+                links = {
+                    key: (fileTree.path_obj / val).resolve() for key, val in dataset_links.items()
+                }
+
+                # For each uri with another dataset, generate the full path and sum the ones
+                # that exist
+                other_files = sum(
+                    UPath(links[ds_name], relpath).exists()
+                    for ds_name, relpath in outside_files
+                    if ds_name in links
+                )
+            else:
+                other_files = 0
+
+            return dataset_files + other_files
+        else:
+            return sum(str(prefix / file) in fileTree for file in arg)
 
 
 class Sessions:
@@ -545,8 +596,7 @@ class Sessions:
         for name, value in self._tree.children.items():
             if name.endswith('_sessions.tsv'):
                 return self._get_session_id(value)
-        else:
-            return None
+        return None
 
     @staticmethod
     def _get_session_id(phenotype_file: FileTree) -> list[str] | None:

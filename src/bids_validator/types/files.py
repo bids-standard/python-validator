@@ -50,7 +50,7 @@ class FileTree:
         return self.path_obj.name
 
     def __contains__(self, relpath: str | os.PathLike[str]) -> bool:
-        parts = Path(relpath).parts
+        parts = UPath(relpath).parts
         if len(parts) == 0:
             return False
         child = self.children.get(parts[0])

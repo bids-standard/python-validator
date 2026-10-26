@@ -2,8 +2,9 @@
 
 import attrs
 import pytest
+from bidsschematools.types.namespace import Namespace
 
-from bids_validator.issues import DatasetIssues, Issue, Severity
+from bids_validator.issues import DatasetIssues, Issue, Severity, coded_issue, schema_issue
 
 
 def test_issue_defaults() -> None:
@@ -59,3 +60,36 @@ def test_issue_is_json_ready() -> None:
     assert data['code'] == 'X'
     assert data['severity'] == 'error'
     assert data['location'] == '/a'
+
+
+def test_schema_issue_reads_code_level_and_message() -> None:
+    definition = {'code': 'X_CODE', 'level': 'warning', 'message': 'A message\nover two lines.\n'}
+    issue = schema_issue(definition, location='a.json', rule='rules.checks.x.Y')
+    assert (issue.code, issue.severity, issue.message) == (
+        'X_CODE',
+        Severity.WARNING,
+        'A message over two lines.',
+    )
+
+
+def test_schema_issue_severity_can_come_from_elsewhere() -> None:
+    """A field's issue leaves out its level: the field's requirement decides it."""
+    issue = schema_issue({'code': 'X', 'message': 'm'}, location=None, severity=Severity.ERROR)
+    assert issue.severity is Severity.ERROR
+
+
+def test_coded_issue_prefers_the_schema(schema: Namespace) -> None:
+    # EMPTY_FILE is defined in rules.errors: its message is the schema's.
+    issue = coded_issue(schema, 'EMPTY_FILE', location='x.nii')
+    assert issue.message == ' '.join(str(schema.rules.errors.EmptyFile.message).split())
+    # TSV_EMPTY_LINE is not: severity and reason come from the reference catalog.
+    issue = coded_issue(schema, 'TSV_EMPTY_LINE', location='x.tsv')
+    assert issue.severity is Severity.ERROR
+    assert issue.message == 'An empty line was found in the TSV file.'
+
+
+def test_coded_issue_refuses_an_unknown_code(schema: Namespace) -> None:
+    import pytest
+
+    with pytest.raises(KeyError):
+        coded_issue(schema, 'NO_SUCH_CODE', location=None)

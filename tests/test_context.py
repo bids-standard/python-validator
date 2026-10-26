@@ -119,7 +119,7 @@ def test_context(synthetic_dataset: FileTree, schema: Namespace) -> None:
     assert events_context.json is None
     assert events_context.gzip is None
     assert events_context.nifti_header is None
-    assert isinstance(events_context.columns, Namespace)
+    assert isinstance(events_context.columns, context.Record)
     assert 'onset' in events_context.columns
     assert len(events_context.columns.onset) == 42
 
@@ -130,7 +130,7 @@ def test_context(synthetic_dataset: FileTree, schema: Namespace) -> None:
     assert stim_context.gzip.filename == stim.name.removesuffix('.gz')
     assert stim_context.gzip.timestamp != 0
     assert stim_context.gzip.comment == ''
-    assert isinstance(stim_context.columns, Namespace)
+    assert isinstance(stim_context.columns, context.Record)
     assert list(stim_context.columns.keys()) == stim_context.sidecar.Columns
 
     ## Tests for:
@@ -357,3 +357,167 @@ def test_exists_bidsuri(examples: Path, schema: Namespace) -> None:
     assert file_context.json is not None
 
     assert file_context.exists(file_context.json.AssociatedEmptyRoom, 'bids-uri') == 1
+
+
+def _small_dataset(root: Path, *relpaths: str) -> FileTree:
+    """Write a dataset_description.json, a README and the given empty files or folders."""
+    (root / 'dataset_description.json').write_text('{"Name": "t", "BIDSVersion": "1.11.1"}')
+    (root / 'README').write_text('A test dataset.')
+    for relpath in relpaths:
+        path = root / relpath
+        if relpath.endswith('/'):
+            path.mkdir(parents=True, exist_ok=True)
+        else:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b'')
+    return FileTree.read_from_filesystem(root)
+
+
+def test_find_datatypes_leaves_the_schema_alone(tmp_path: Path, schema: Namespace) -> None:
+    """A folder name with a dot must not change the (cached, shared) schema.
+
+    ``".git" in namespace`` reads the dot as a path separator and inserts an empty
+    key into the Namespace. ``load_schema()`` returns the same object to every caller,
+    so every context built afterwards failed with ``AttributeError: ... 'value'``.
+    """
+    tree = _small_dataset(tmp_path, '.git/', '.datalad/', 'sub-01/anat/sub-01_T1w.nii.gz')
+    before = list(schema.objects.datatypes.keys())
+
+    found = context.find_datatypes(tree, schema.objects.datatypes)
+
+    assert found == {'anat'}
+    assert list(schema.objects.datatypes.keys()) == before
+
+
+def test_modalities_skips_datatypes_without_a_modality(tmp_path: Path, schema: Namespace) -> None:
+    """``phenotype`` is a datatype that belongs to no modality; it used to raise KeyError."""
+    tree = _small_dataset(tmp_path, 'phenotype/survey.tsv', 'sub-01/anat/sub-01_T1w.nii.gz')
+    dataset = context.Dataset(tree, schema)
+
+    assert set(dataset.datatypes) == {'anat', 'phenotype'}
+    assert dataset.modalities == ['mri']
+
+
+@pytest.mark.parametrize(
+    ('arg', 'rule', 'expected'),
+    [
+        pytest.param('README', 'dataset', 1, id='relative'),
+        # ``path`` in the context always starts with "/"; it means the dataset root.
+        pytest.param('/README', 'dataset', 1, id='leading-slash-is-the-root'),
+        pytest.param('/sub-01/anat/sub-01_T1w.nii.gz', 'dataset', 1, id='leading-slash-deep'),
+        pytest.param('anat/sub-01_T1w.nii.gz', 'subject', 1, id='subject-relative'),
+        # Not a path at all: not found, and no "Protocol not known: 'bids'" error.
+        pytest.param('bids::README', 'dataset', 0, id='uri-given-to-dataset-rule'),
+        pytest.param('bids::README', 'subject', 0, id='uri-given-to-subject-rule'),
+        pytest.param('../README', 'dataset', 0, id='parent-is-never-found'),
+        pytest.param('', 'dataset', 0, id='empty-path'),
+    ],
+)
+def test_exists_resolves_paths_by_hand(
+    tmp_path: Path, schema: Namespace, arg: str, rule: str, expected: int
+) -> None:
+    tree = _small_dataset(tmp_path, 'sub-01/anat/sub-01_T1w.nii.gz')
+    file_context = context.Context(
+        tree / 'sub-01' / 'anat' / 'sub-01_T1w.nii.gz', context.Dataset(tree, schema), None
+    )
+
+    assert file_context.exists(arg, rule) == expected
+
+
+# --- reading file contents for the schema rules ------------------------------
+
+
+def _ctx(root: Path, relpath: str, schema: Namespace) -> context.Context:
+    tree = FileTree.read_from_filesystem(root)
+    return context.Context(tree / relpath, context.Dataset(tree, schema), None)
+
+
+def _files(root: Path, files: dict[str, object]) -> Path:
+    (root / 'dataset_description.json').write_text('{"Name": "t", "BIDSVersion": "1.11.1"}')
+    for relpath, content in files.items():
+        path = root / relpath
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content if isinstance(content, str) else json.dumps(content))
+    return root
+
+
+def test_a_json_file_has_no_sidecar(tmp_path: Path, schema: Namespace) -> None:
+    _files(tmp_path, {'sub-01/anat/sub-01_T1w.json': {'EchoTime': 0.01}})
+    assert _ctx(tmp_path, 'sub-01/anat/sub-01_T1w.json', schema).sidecar == {}
+
+
+def test_repetition_time_is_rounded_to_milliseconds(tmp_path: Path, schema: Namespace) -> None:
+    _files(
+        tmp_path,
+        {
+            'sub-01/func/sub-01_task-x_bold.nii.gz': '',
+            'task-x_bold.json': {'RepetitionTime': 2.00049},
+        },
+    )
+    assert (
+        _ctx(tmp_path, 'sub-01/func/sub-01_task-x_bold.nii.gz', schema).sidecar.RepetitionTime
+        == 2.0
+    )
+
+
+def test_a_broken_sidecar_is_skipped_not_fatal(tmp_path: Path, schema: Namespace) -> None:
+    """The broken JSON is reported on its own; the other levels still apply."""
+    _files(
+        tmp_path,
+        {
+            'sub-01/func/sub-01_task-x_bold.nii.gz': '',
+            'task-x_bold.json': {'TaskName': 'x'},
+            'sub-01/func/sub-01_task-x_bold.json': '{"broken": ',
+        },
+    )
+    ctx = _ctx(tmp_path, 'sub-01/func/sub-01_task-x_bold.nii.gz', schema)
+    assert ctx.sidecar == {'TaskName': 'x'}
+
+
+def test_sidecar_origins_name_the_nearest_file(tmp_path: Path, schema: Namespace) -> None:
+    _files(
+        tmp_path,
+        {
+            'sub-01/func/sub-01_task-x_bold.nii.gz': '',
+            'task-x_bold.json': {'TaskName': 'x', 'RepetitionTime': 2},
+            'sub-01/func/sub-01_task-x_bold.json': {'RepetitionTime': 3},
+        },
+    )
+    tree = FileTree.read_from_filesystem(tmp_path)
+    origins = context.sidecar_origins(tree / 'sub-01' / 'func' / 'sub-01_task-x_bold.nii.gz')
+    assert origins == {
+        'RepetitionTime': 'sub-01/func/sub-01_task-x_bold.json',
+        'TaskName': 'task-x_bold.json',
+    }
+
+
+@pytest.mark.parametrize(
+    ('description', 'kind'),
+    [
+        ({'Name': 't', 'BIDSVersion': '1.11.1'}, 'raw'),
+        ({'Name': 't', 'BIDSVersion': '1.11.1', 'GeneratedBy': [{'Name': 'x'}]}, 'derivative'),
+        ({'Name': 't', 'BIDSVersion': '1.11.1', 'DatasetType': 'study'}, 'study'),
+    ],
+)
+def test_dataset_type_defaults_like_the_reference(
+    tmp_path: Path, schema: Namespace, description: dict[str, object], kind: str
+) -> None:
+    (tmp_path / 'dataset_description.json').write_text(json.dumps(description))
+    dataset = context.Dataset(FileTree.read_from_filesystem(tmp_path), schema)
+    assert dataset.dataset_description.DatasetType == kind
+
+
+def test_a_missing_description_is_empty_not_an_error(tmp_path: Path, schema: Namespace) -> None:
+    (tmp_path / 'README').write_text('x')
+    dataset = context.Dataset(FileTree.read_from_filesystem(tmp_path), schema)
+    assert dataset.dataset_description == {'DatasetType': 'raw'}
+
+
+def test_a_record_keeps_dotted_keys() -> None:
+    """A Namespace reads "key_resp.rt" as a path; a Record keeps it a key."""
+    record = context.Record({'key_resp.rt': (0.5,), 'onset': (1,)})
+    assert list(record) == ['key_resp.rt', 'onset']
+    assert record['key_resp.rt'] == (0.5,)
+    assert record.onset == (1,)
+    with pytest.raises(AttributeError):
+        _ = record.missing

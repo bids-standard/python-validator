@@ -13,7 +13,7 @@ from typing import Annotated
 from bidsschematools.schema import load_schema
 from bidsschematools.types.namespace import Namespace
 
-from bids_validator.filename_checks import collect_filename_issues
+from bids_validator.checks import collect_issues
 from bids_validator.issues import DatasetIssues, Severity
 from bids_validator.types.files import FileTree
 
@@ -21,11 +21,11 @@ app = typer.Typer()
 
 
 def validate(tree: FileTree, schema: Namespace, verbose: bool = False) -> DatasetIssues:
-    """Check every filename in the dataset against the schema and report what is wrong.
+    """Run every check on the dataset and report what is wrong.
 
-    The walk, the rule matching and the findings all come from
-    :func:`~bids_validator.filename_checks.collect_filename_issues`, so the CLI and
-    any library caller run exactly the same checks.
+    The walk and every check come from :func:`~bids_validator.checks.collect_issues`
+    (filename checks, then the schema's ``rules.checks``), so the CLI and any library
+    caller run exactly the same checks.
 
     Parameters
     ----------
@@ -42,10 +42,10 @@ def validate(tree: FileTree, schema: Namespace, verbose: bool = False) -> Datase
         Every finding, so the caller can set an exit code.
 
     """
-    issues = collect_filename_issues(tree, schema)
+    issues = collect_issues(tree, schema)
 
     for issue in issues:
-        print(f'{issue.severity.value}: {issue.code}: {issue.location}')
+        print(f'{issue.severity.value}: {issue.code}: {issue.location or "(dataset)"}')
         if issue.message:
             print(f'    {issue.message}')
         if verbose and issue.rule:
@@ -56,7 +56,7 @@ def validate(tree: FileTree, schema: Namespace, verbose: bool = False) -> Datase
     if issues:
         print(f'\n{errors} error(s), {warnings} warning(s)')
     else:
-        print('No filename problems found')
+        print('No problems found')
 
     return issues
 

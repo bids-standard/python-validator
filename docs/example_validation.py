@@ -1,16 +1,16 @@
-"""Runnable example for the filename validation module.
+"""Runnable example: validate a dataset, or see each filename code demonstrated.
 
 Two modes:
 
 * No argument: build a small dataset in a temporary directory that contains one
-  deliberately broken file per issue code, validate it, and print the findings.
-  Every code the module can emit is demonstrated.
-* With a path: validate your own dataset.
+  deliberately broken file name per filename code, run only the filename checks on it,
+  and print the findings.
+* With a path: run every check on your own dataset.
 
 Usage
 -----
-    python docs/example_filename_issues.py                    # generated demo
-    python docs/example_filename_issues.py /path/to/dataset   # your own data
+    python docs/example_validation.py                    # generated filename demo
+    python docs/example_validation.py /path/to/dataset   # every check, your own data
 """
 
 from __future__ import annotations
@@ -18,22 +18,25 @@ from __future__ import annotations
 import json
 import sys
 import tempfile
+from collections.abc import Callable, Sequence
 from pathlib import Path
 
 from bidsschematools.schema import load_schema
 
-from bids_validator.filename_checks import collect_filename_issues
-from bids_validator.issues import Severity
+from bids_validator.checks import PER_FILE_CHECKS, collect_issues
+from bids_validator.context import Context
+from bids_validator.filename_checks import filename_issues
+from bids_validator.issues import Issue, Severity
 from bids_validator.types.files import FileTree
 
-# Correctly named files. None of these produce a finding.
+# Correctly named files. None of these produce a filename finding.
 VALID_FILES = (
     'README',
     'sub-01/anat/sub-01_T1w.nii.gz',
     'sub-01/func/sub-01_task-rest_bold.nii.gz',
 )
 
-# One broken file per issue code, with the code each one is expected to raise.
+# One broken file per filename code, with the code each one is expected to raise.
 BROKEN_FILES = {
     'sub-01/notes.txt': 'NOT_INCLUDED',
     'sub-01/anat/sub-01_T1w.txt': 'EXTENSION_MISMATCH',
@@ -43,6 +46,7 @@ BROKEN_FILES = {
     'sub-01/anat/sub-01_dir-AP_T1w.nii.gz': 'ENTITY_NOT_IN_RULE',
     'sub-01/anat/acq-x_sub-01_T1w.nii.gz': 'FILENAME_MISMATCH',
     'sub-01/func/sub-01_T1w.nii.gz': 'DATATYPE_MISMATCH',
+    'sub-01/sub-01_T1w.nii.gz': 'MISSING_DATATYPE',
     'sub-02/anat/sub-01_T1w.nii.gz': 'INVALID_LOCATION',
     'sub-01/sub-01_channels.tsv': 'ALL_FILENAME_RULES_HAVE_ISSUES',
 }
@@ -60,10 +64,10 @@ def build_dataset(root: Path) -> Path:
     return root
 
 
-def validate(root: Path) -> None:
-    """Validate a dataset and print every filename finding."""
+def validate(root: Path, checks: Sequence[Callable[[Context], list[Issue]]]) -> None:
+    """Validate a dataset with the given checks and print every finding."""
     tree = FileTree.read_from_filesystem(str(root))
-    issues = collect_filename_issues(tree, load_schema())
+    issues = collect_issues(tree, load_schema(), checks=checks)
 
     errors = issues.by_severity(Severity.ERROR)
     warnings = issues.by_severity(Severity.WARNING)
@@ -72,7 +76,7 @@ def validate(root: Path) -> None:
     print(f'{len(issues)} finding(s): {len(errors)} error(s), {len(warnings)} warning(s)\n')
     for issue in issues:
         print(f'[{issue.severity.value}] {issue.code}')
-        print(f'    file   : {issue.location}')
+        print(f'    file   : {issue.location or "(dataset)"}')
         print(f'    detail : {issue.message}')
         if issue.rule:
             print(f'    rule   : {issue.rule}')
@@ -80,20 +84,20 @@ def validate(root: Path) -> None:
 
 
 def run_demo() -> None:
-    """Build the generated example dataset and validate it."""
+    """Build the generated example dataset and run the filename checks on it."""
     with tempfile.TemporaryDirectory() as tmp:
         root = build_dataset(Path(tmp))
-        print('Generated example: one broken file per issue code.\n')
+        print('Generated example: one broken file name per filename code.\n')
         for relpath, code in BROKEN_FILES.items():
             print(f'  {code:32} {relpath}')
         print()
-        validate(root)
+        validate(root, checks=(filename_issues,))
 
 
 def main(argv: list[str]) -> int:
     """Run the demo, or validate the dataset given as the first argument."""
     if argv:
-        validate(Path(argv[0]))
+        validate(Path(argv[0]), checks=PER_FILE_CHECKS)
     else:
         run_demo()
     return 0

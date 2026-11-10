@@ -6,20 +6,25 @@ import pathlib
 from bidsschematools.types.namespace import Namespace
 
 from bids_validator.checks import collect_issues
+from bids_validator.checks.fields import field_issues
+from bids_validator.checks.inheritance import inheritance_issues
+from bids_validator.checks.rules import rule_issues
 from bids_validator.context import Context, Dataset
-from bids_validator.field_checks import field_issues, inheritance_issues
 from bids_validator.issues import Issue, Severity
-from bids_validator.rule_checks import rule_issues
 from bids_validator.types.files import FileTree
 
-from .helpers import FULL_DESCRIPTION, nifti, write
+from ..helpers import FULL_DESCRIPTION, nifti, write
 
 BOLD = 'sub-01/func/sub-01_task-rest_bold.nii.gz'
 
 
 def rule_findings(root: pathlib.Path, schema: Namespace) -> list[Issue]:
     tree = FileTree.read_from_filesystem(str(root))
-    return list(collect_issues(tree, schema, checks=(rule_issues,), dataset_checks=()))
+    return list(
+        collect_issues(
+            tree, schema, dataset_checks=(), folder_checks=(), file_checks=(rule_issues,)
+        )
+    )
 
 
 def keyed(issues: list[Issue]) -> set[tuple[str, str | None, str | None]]:
@@ -162,7 +167,11 @@ def test_a_json_file_gets_no_sidecar_rules(tmp_path: pathlib.Path, schema: Names
 
 def overrides(root: pathlib.Path, schema: Namespace) -> list[Issue]:
     tree = FileTree.read_from_filesystem(str(root))
-    return list(collect_issues(tree, schema, checks=(inheritance_issues,), dataset_checks=()))
+    return list(
+        collect_issues(
+            tree, schema, dataset_checks=(), folder_checks=(), file_checks=(inheritance_issues,)
+        )
+    )
 
 
 def test_a_deeper_sidecar_changing_a_value_is_warned(

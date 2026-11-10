@@ -4,7 +4,7 @@ import attrs
 import pytest
 from bidsschematools.types.namespace import Namespace
 
-from bids_validator.issues import DatasetIssues, Issue, Severity, coded_issue, schema_issue
+from bids_validator.issues import DatasetIssues, Issue, IssueDefinition, Severity
 
 
 def test_issue_defaults() -> None:
@@ -62,34 +62,36 @@ def test_issue_is_json_ready() -> None:
     assert data['location'] == '/a'
 
 
-def test_schema_issue_reads_code_level_and_message() -> None:
-    definition = {'code': 'X_CODE', 'level': 'warning', 'message': 'A message\nover two lines.\n'}
-    issue = schema_issue(definition, location='a.json', rule='rules.checks.x.Y')
-    assert (issue.code, issue.severity, issue.message) == (
-        'X_CODE',
-        Severity.WARNING,
-        'A message over two lines.',
+def test_a_definition_makes_findings() -> None:
+    definition = IssueDefinition('EMPTY_FILE', Severity.ERROR, 'Empty files not allowed.')
+    issue = definition.make_issue('sub-01/x.nii.gz', sub_code='s', rule='rules.x')
+    assert issue == Issue(
+        code='EMPTY_FILE',
+        severity=Severity.ERROR,
+        location='sub-01/x.nii.gz',
+        message='Empty files not allowed.',  # the reason, when the check has nothing else
+        sub_code='s',
+        rule='rules.x',
     )
+    assert definition.make_issue(None, message='specific').message == 'specific'
 
 
-def test_schema_issue_severity_can_come_from_elsewhere() -> None:
+def test_a_definition_from_a_schema_issue_block() -> None:
+    block = {'code': 'X_CODE', 'level': 'warning', 'message': 'A message\nover two lines.\n'}
+    definition = IssueDefinition.from_schema(block)
+    assert definition == IssueDefinition('X_CODE', Severity.WARNING, 'A message over two lines.')
+
+
+def test_a_field_issue_block_takes_the_severity_it_is_given() -> None:
     """A field's issue leaves out its level: the field's requirement decides it."""
-    issue = schema_issue({'code': 'X', 'message': 'm'}, location=None, severity=Severity.ERROR)
-    assert issue.severity is Severity.ERROR
+    definition = IssueDefinition.from_schema(
+        {'code': 'X', 'message': 'm'}, severity=Severity.ERROR
+    )
+    assert definition.severity is Severity.ERROR
+    assert IssueDefinition.from_schema({'code': 'X', 'message': 'm'}).severity is Severity.ERROR
 
 
-def test_coded_issue_prefers_the_schema(schema: Namespace) -> None:
-    # EMPTY_FILE is defined in rules.errors: its message is the schema's.
-    issue = coded_issue(schema, 'EMPTY_FILE', location='x.nii')
-    assert issue.message == ' '.join(str(schema.rules.errors.EmptyFile.message).split())
-    # TSV_EMPTY_LINE is not: severity and reason come from the reference catalog.
-    issue = coded_issue(schema, 'TSV_EMPTY_LINE', location='x.tsv')
-    assert issue.severity is Severity.ERROR
-    assert issue.message == 'An empty line was found in the TSV file.'
-
-
-def test_coded_issue_refuses_an_unknown_code(schema: Namespace) -> None:
-    import pytest
-
-    with pytest.raises(KeyError):
-        coded_issue(schema, 'NO_SUCH_CODE', location=None)
+def test_a_definition_from_rules_errors(schema: Namespace) -> None:
+    definition = IssueDefinition.from_schema(schema.rules.errors.EmptyFile)
+    assert definition.code == 'EMPTY_FILE'
+    assert definition.reason == ' '.join(str(schema.rules.errors.EmptyFile.message).split())

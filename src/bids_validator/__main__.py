@@ -1,6 +1,10 @@
 # ruff: noqa: D100
 # ruff: noqa: D103
+# (The two lines above tell the linter not to ask for a docstring on this module, D100,
+# or on its functions, D103. This file is what runs for ``bids-validator <dataset>``.)
 
+# typer is an optional dependency (``pip install bids_validator[cli]``): the library can
+# be used without it, so its absence is reported in a sentence, not a traceback.
 try:
     import typer
 except ImportError:
@@ -17,6 +21,8 @@ from bids_validator.checks import collect_issues
 from bids_validator.issues import DatasetIssues, Severity
 from bids_validator.types.files import FileTree
 
+# The command-line application. ``@app.command()`` below turns ``main``'s parameters into
+# the command's arguments and options; ``app()`` at the bottom runs it.
 app = typer.Typer()
 
 
@@ -24,8 +30,8 @@ def validate(tree: FileTree, schema: Namespace, verbose: bool = False) -> Datase
     """Run every check on the dataset and report what is wrong.
 
     The walk and every check come from :func:`~bids_validator.checks.collect_issues`
-    (filename checks, then the schema's ``rules.checks``), so the CLI and any library
-    caller run exactly the same checks.
+    (reading, inheritance, names and places, the schema's rules), so the CLI and any
+    library caller run exactly the same checks.
 
     Parameters
     ----------
@@ -87,6 +93,11 @@ def version_callback(value: bool) -> None:
         raise typer.Exit()
 
 
+# ``@app.command()`` registers ``main`` as the command. typer reads its parameters:
+# ``bids_path`` (no default) becomes the required argument, ``schema_path`` the option
+# ``--schema-path``, and ``Annotated[bool, typer.Option(...)]`` attaches the flag names and
+# help text to ``verbose`` and ``version``. ``is_eager`` runs ``--version`` before anything
+# else, and its callback exits.
 @app.command()
 def main(
     bids_path: str,
@@ -117,5 +128,7 @@ def main(
         raise typer.Exit(code=1)
 
 
+# True only when the file is run as a program (``python -m bids_validator``), not when it
+# is imported by a test.
 if __name__ == '__main__':
     app()

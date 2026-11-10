@@ -5,11 +5,11 @@ import pathlib
 import pytest
 from bidsschematools.types.namespace import Namespace
 
+from bids_validator.checks.integrity import dataset_integrity_issues, integrity_issues
 from bids_validator.context import Dataset
-from bids_validator.integrity_checks import dataset_integrity_issues, integrity_issues
 from bids_validator.types.files import FileTree
 
-from .helpers import build, findings, gzipped, nifti, write
+from ..helpers import build, findings, gzipped, nifti, write
 
 
 def found(root: pathlib.Path, schema: Namespace) -> list[tuple[str, str]]:

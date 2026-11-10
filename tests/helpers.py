@@ -10,7 +10,7 @@ import nibabel as nb
 import numpy as np
 from bidsschematools.types.namespace import Namespace
 
-from bids_validator.checks import collect_issues
+from bids_validator.checks import FOLDER_CHECKS, collect_issues
 from bids_validator.context import Context
 from bids_validator.issues import Issue
 from bids_validator.types.files import FileTree
@@ -114,18 +114,33 @@ def gzipped(text: str, *, mtime: int = 0, filename: str | None = None) -> bytes:
     return buffer.getvalue()
 
 
+def issues_of(
+    root: pathlib.Path, schema: Namespace, *checks: Callable[[Context], list[Issue]]
+) -> list[Issue]:
+    """Return every finding of the given checks, or of all of them.
+
+    A folder check (``folder_issues``) is run on folders, any other check on files.
+    """
+    tree = FileTree.read_from_filesystem(str(root))
+    if not checks:
+        return list(collect_issues(tree, schema))
+    issues: Iterable[Issue] = collect_issues(
+        tree,
+        schema,
+        dataset_checks=(),
+        folder_checks=[check for check in checks if check in FOLDER_CHECKS],
+        file_checks=[check for check in checks if check not in FOLDER_CHECKS],
+    )
+    return list(issues)
+
+
 def findings(
     root: pathlib.Path,
     schema: Namespace,
     *checks: Callable[[Context], list[Issue]],
 ) -> list[tuple[str, str]]:
     """Return ``(code, location)`` of every finding, from the given checks or all of them."""
-    tree = FileTree.read_from_filesystem(str(root))
-    if checks:
-        issues: Iterable[Issue] = collect_issues(tree, schema, checks=checks, dataset_checks=())
-    else:
-        issues = collect_issues(tree, schema)
-    return [(issue.code, issue.location or '') for issue in issues]
+    return [(issue.code, issue.location or '') for issue in issues_of(root, schema, *checks)]
 
 
 def codes(

@@ -29,10 +29,15 @@ from typing import Any, TypeVar
 from typing import Literal as L
 
 import numpy as np
+
+# The schema's own parser: ``bst_expr.parse('size > 150')`` returns a tree of nodes
+# (``BinOp(op='>', lh='size', rh=150)``) that :func:`evaluate` walks.
 from bidsschematools import expressions as bst_expr
 
 from bids_validator.context import Context
 
+# "Some value type": in ``count_(array: list[T], val: T)`` the value counted has the type
+# of the array's items. Only used by type hints.
 T = TypeVar('T', bound=str | int | float)
 
 
@@ -602,7 +607,10 @@ def _compare(func: Callable[[Any, Any], bool]) -> Callable[[Any, Any], bool]:
     return compare
 
 
-# Available Binary operations
+# The binary operators the language has, from the operator's text to the function that
+# computes it: ``evaluate`` looks up ``bin_ops['>']`` for ``size > 150`` and calls it
+# with both sides. ``&&`` and ``||`` are not here: ``evaluate`` handles them itself,
+# because they must not evaluate their right side when the left decides.
 bin_ops: dict[str, Callable[[Any, Any], Any]] = {
     '+': _add,
     '-': _null_propagating(operator.sub),
@@ -619,10 +627,12 @@ bin_ops: dict[str, Callable[[Any, Any], Any]] = {
     'in': in_,
 }
 
-# Available Right operations
+# The one prefix operator, ``!`` (not), decided by the language's truth test.
 right_ops: dict[str, Callable[[Any], Any]] = {'!': lambda value: not truthy(value)}
 
-# Available functions
+# The functions an expression may call, from their name in the schema to the Python
+# function. Each Python name ends in ``_`` so it does not hide a Python built-in
+# (``max_`` is the schema's ``max``, ``max`` stays Python's).
 functions = {
     'allequal': allequal_,
     'count': count_,
@@ -638,19 +648,29 @@ functions = {
     'unique': unique_,
 }
 
+# The language's three constant words, and the Python values they stand for.
 vals = {
     'true': True,
     'false': False,
     'null': None,
 }
 
+# Every name an expression can use that is not about a file: the constants and the
+# functions. ``interpret`` puts it in front of the file's context, so ``length`` is the
+# function and ``sidecar`` is the file's sidecar.
 el_namespace = vals | functions
 
+# A unique "not found" marker for ``LookupProxy``: unlike None, no context attribute can
+# ever be this object, so "absent" and "present but null" stay different.
 _MISSING = object()
 
 
 class LookupProxy:
-    """Lookup proxy for context class."""
+    """Lookup proxy for context class.
+
+    Looks a name up in each of several objects in turn (first ``el_namespace``, then the
+    file's context) and returns the first match, so an expression sees one namespace.
+    """
 
     def __init__(self, *objs: Mapping[str, Any] | Context) -> None:
         self.objs = objs

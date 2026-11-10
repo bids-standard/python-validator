@@ -6,18 +6,20 @@ import pytest
 from bidsschematools.types.namespace import Namespace
 
 from bids_validator.checks import collect_issues
+from bids_validator.checks.rules import rule_issues
 from bids_validator.issues import Issue, Severity
-from bids_validator.rule_checks import rule_issues
 from bids_validator.types.files import FileTree
 
-from .helpers import write
+from ..helpers import write
 
 CHANNELS = 'sub-01/eeg/sub-01_task-rest_channels.tsv'
 
 
 def table_findings(root: pathlib.Path, schema: Namespace) -> list[Issue]:
     tree = FileTree.read_from_filesystem(str(root))
-    issues = collect_issues(tree, schema, checks=(rule_issues,), dataset_checks=())
+    issues = collect_issues(
+        tree, schema, dataset_checks=(), folder_checks=(), file_checks=(rule_issues,)
+    )
     return [issue for issue in issues if issue.code.startswith('TSV_')]
 
 

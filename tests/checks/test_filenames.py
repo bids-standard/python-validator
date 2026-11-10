@@ -9,20 +9,21 @@ from bidsschematools.types.namespace import Namespace
 
 from bids_validator import BIDSValidator
 from bids_validator.checks import collect_issues
+from bids_validator.checks.filename_rules import hide_unused_name_parts, matching_filename_rules
+from bids_validator.checks.filenames import SIDECAR_EXTENSIONS, filename_issues, folder_issues
 from bids_validator.context import Context, Dataset
-from bids_validator.filename_checks import SIDECAR_EXTENSIONS, filename_issues, identified
-from bids_validator.issues import REFERENCE_CODES, Severity
+from bids_validator.issues import Severity
 from bids_validator.types.files import FileTree
 
-from .helpers import build
-from .helpers import codes as all_codes
+from ..helpers import build
+from ..helpers import codes as all_codes
 
 VALID = 'sub-01/anat/sub-01_T1w.nii.gz'
 
 
 def codes(root: pathlib.Path, schema: Namespace) -> dict[str, list[str]]:
-    """Map each filename code found to the locations it was found at."""
-    return all_codes(root, schema, filename_issues)
+    """Map each filename code found, for files and folders, to its locations."""
+    return all_codes(root, schema, filename_issues, folder_issues)
 
 
 def test_valid_dataset_has_no_findings(tmp_path: pathlib.Path, schema: Namespace) -> None:
@@ -58,7 +59,9 @@ def test_each_code_fires(
 def test_findings_are_errors_and_carry_location(tmp_path: pathlib.Path, schema: Namespace) -> None:
     build(tmp_path, 'sub-01/notes.txt')
     tree = FileTree.read_from_filesystem(str(tmp_path))
-    issues = collect_issues(tree, schema, checks=(filename_issues,), dataset_checks=())
+    issues = collect_issues(
+        tree, schema, dataset_checks=(), folder_checks=(), file_checks=(filename_issues,)
+    )
     assert len(issues) == 1
     assert issues.has_errors
     issue = issues.issues[0]
@@ -72,32 +75,13 @@ def test_rule_path_recorded_for_rule_scoped_findings(
 ) -> None:
     build(tmp_path, 'sub-01/func/sub-01_bold.nii.gz')
     tree = FileTree.read_from_filesystem(str(tmp_path))
-    issues = collect_issues(tree, schema, checks=(filename_issues,), dataset_checks=())
+    issues = collect_issues(
+        tree, schema, dataset_checks=(), folder_checks=(), file_checks=(filename_issues,)
+    )
     issue = next(iter(issues))
     assert issue.code == 'MISSING_REQUIRED_ENTITY'
     assert issue.rule is not None
     assert issue.rule.startswith('rules.files.')
-
-
-def test_every_code_is_in_the_catalog() -> None:
-    """Every code this module can emit has a severity and a reason."""
-    for code in (
-        'NOT_INCLUDED',
-        'ENTITY_WITH_NO_LABEL',
-        'INVALID_ENTITY_LABEL',
-        'MISSING_REQUIRED_ENTITY',
-        'ENTITY_NOT_IN_RULE',
-        'MISSING_DATATYPE',
-        'DATATYPE_MISMATCH',
-        'EXTENSION_MISMATCH',
-        'INVALID_LOCATION',
-        'FILENAME_MISMATCH',
-        'ALL_FILENAME_RULES_HAVE_ISSUES',
-        'CASE_COLLISION',
-    ):
-        severity, reason = REFERENCE_CODES[code]
-        assert severity is Severity.ERROR
-        assert reason
 
 
 # --- folders --------------------------------------------------------------
@@ -188,7 +172,9 @@ def test_names_differing_only_by_case_collide(
         }
     )
     tree = FileTree.read_from_filesystem('memory:///ds')
-    issues = collect_issues(tree, schema, checks=(filename_issues,), dataset_checks=())
+    issues = collect_issues(
+        tree, schema, dataset_checks=(), folder_checks=(), file_checks=(filename_issues,)
+    )
     collisions = [i.location or '' for i in issues if i.code == 'CASE_COLLISION']
     assert sorted(collisions) == ['sub-01/anat/sub-01_T1w.nii.gz', 'sub-01/anat/sub-01_t1w.nii.gz']
 
@@ -199,19 +185,22 @@ def test_names_differing_only_by_case_collide(
 def test_an_unrecognised_file_has_no_name_parts_for_the_rules(
     tmp_path: pathlib.Path, schema: Namespace
 ) -> None:
-    """``identified`` clears what no matched rule uses, as the reference's cleanContext."""
+    """``hide_unused_name_parts`` hides what no matched rule uses, like cleanContext."""
     tree = FileTree.read_from_filesystem(str(build(tmp_path, VALID, 'sub-01/anat/x-1_notes.txt')))
     dataset = Dataset(tree, schema)
 
-    unknown = identified(Context(tree / 'sub-01' / 'anat' / 'x-1_notes.txt', dataset, None))
+    def cleaned(context: Context) -> Context:
+        return hide_unused_name_parts(context, matching_filename_rules(context))
+
+    unknown = cleaned(Context(tree / 'sub-01' / 'anat' / 'x-1_notes.txt', dataset, None))
     assert (unknown.entities, unknown.suffix, unknown.extension) == ({}, '', '')
 
     readme_tree = FileTree.read_from_filesystem(str(build(tmp_path / 'r', 'README')))
-    readme = identified(Context(readme_tree / 'README', Dataset(readme_tree, schema), None))
+    readme = cleaned(Context(readme_tree / 'README', Dataset(readme_tree, schema), None))
     assert readme.entities == {}
 
     image = Context(tree / 'sub-01' / 'anat' / 'sub-01_T1w.nii.gz', dataset, None)
-    assert identified(image) is image  # nothing to clear: the context itself
+    assert cleaned(image) is image  # nothing to hide: the context itself
 
 
 # --- derivatives and recordings -------------------------------------------

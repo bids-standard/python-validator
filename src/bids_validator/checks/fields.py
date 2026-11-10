@@ -1,4 +1,4 @@
-"""JSON metadata: required and recommended fields, the values they hold, and overrides.
+"""The ``fields`` payload: required and recommended JSON fields, and the values they hold.
 
 Three schema rule groups list the fields a JSON file should hold, as a ``fields``
 payload::
@@ -22,45 +22,82 @@ payload::
 
 A field may carry its own ``issue`` (``B0_FIELD_IDENTIFIER_RECOMMENDED``), used instead
 of those generic codes. A field that IS present has its value checked against its
-definition in ``schema.objects.metadata`` (:mod:`bids_validator.values`); a wrong value
+definition in ``schema.objects.metadata`` (:mod:`.values`); a wrong value
 is ``JSON_SCHEMA_VALIDATION_ERROR``, reported on the JSON file that holds it, once.
 
-Separately, :func:`inheritance_issues` warns when a JSON file deeper in the tree gives
-a field a different value than a JSON file above it (``SIDECAR_FIELD_OVERRIDE``).
-
-All of this follows the reference validator's ``evalJsonCheck`` (``applyRules.ts``)
-and ``loadSidecar`` (``schema/context.ts``).
+This follows the reference validator's ``evalJsonCheck`` (``applyRules.ts``). The rule
+engine (:mod:`.rules`) calls :func:`field_issues` for every rule with a ``fields``
+payload whose selectors hold for the file.
 """
 
+# Lets type hints name classes that are only imported for type checkers (below).
 from __future__ import annotations
 
 import re
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
-from .context import ValidationError, load_json, sidecar_origins, walk_back
-from .issues import Issue, Severity, coded_issue, schema_issue
-from .types.files import FileTree
-from .values import json_equal, value_errors
-from .walk import is_directory
+from ..issues import Issue, IssueDefinition, Severity
+from .values import value_errors
 
+# Imported only for type hints; never imported when the program runs.
 if TYPE_CHECKING:
-    from .context import Context
+    from ..context import Context
 
-__all__ = ['field_issues', 'inheritance_issues']
+# The names other modules are meant to import from this one.
+__all__ = [
+    'JSON_KEY_RECOMMENDED',
+    'JSON_KEY_REQUIRED',
+    'SIDECAR_KEY_RECOMMENDED',
+    'SIDECAR_KEY_REQUIRED',
+    'field_issues',
+]
 
-# Files that cannot have a sidecar: a JSON file is one, and text files at the root
-# (README, CHANGES, CITATION.cff ...) describe the dataset, not a recording.
-_NO_SIDECAR = frozenset({'.json', '', '.md', '.txt', '.rst', '.cff'})
+# --- what this module reports --------------------------------------------
+#
+# Defined by the schema, and read from it where they are reported:
+#
+#   JSON_SCHEMA_VALIDATION_ERROR   rules.errors.JsonSchemaValidationError
+#   a field's own issue            the ``issue`` of a field in a rule, such as
+#                                  B0_FIELD_IDENTIFIER_RECOMMENDED
+#
+# Defined only by the reference validator (bids-validator, src/issues/list.ts):
+
+# A data file's sidecar lacks a required field.
+SIDECAR_KEY_REQUIRED = IssueDefinition(
+    'SIDECAR_KEY_REQUIRED',
+    Severity.ERROR,
+    "A data file's JSON sidecar is missing a key listed as required.",
+)
+# A data file's sidecar lacks a recommended field.
+SIDECAR_KEY_RECOMMENDED = IssueDefinition(
+    'SIDECAR_KEY_RECOMMENDED',
+    Severity.WARNING,
+    "A data file's JSON sidecar is missing a key listed as recommended.",
+)
+# A JSON file (such as dataset_description.json) lacks a required field.
+JSON_KEY_REQUIRED = IssueDefinition(
+    'JSON_KEY_REQUIRED', Severity.ERROR, 'A JSON file is missing a key listed as required.'
+)
+# A JSON file lacks a recommended field.
+JSON_KEY_RECOMMENDED = IssueDefinition(
+    'JSON_KEY_RECOMMENDED', Severity.WARNING, 'A JSON file is missing a key listed as recommended.'
+)
+
+# Extensions of files that cannot have a sidecar: a JSON file is one, and text files at
+# the root (README, CHANGES, CITATION.cff ...) describe the dataset, not a recording.
+_NO_SIDECAR_EXTENSIONS = frozenset({'.json', '', '.md', '.txt', '.rst', '.cff'})
 
 # A requirement level, as a severity. Optional, prohibited and deprecated fields are
 # never reported missing.
 _LEVELS = {'required': Severity.ERROR, 'recommended': Severity.WARNING}
 
-# "required if `Key` is `Value`": a field whose level depends on another field.
-_ADDENDUM = re.compile(r'(required|recommended) if `(\w+)` is `(\w+)`')
+# A level addendum, "required if `Key` is `Value`": a field whose level depends on the
+# value of another field. Captures the new level, the key and the value.
+_LEVEL_ADDENDUM = re.compile(r'(required|recommended) if `(\w+)` is `(\w+)`')
 
-# Derivatives make every field optional unless a rule is written for derivatives.
+# In a derivative dataset every field is optional, unless the rule says it is written for
+# derivatives by carrying exactly this selector.
 _DERIVATIVE_SELECTOR = 'dataset.dataset_description.DatasetType == "derivative"'
 
 
@@ -83,7 +120,7 @@ def field_issues(path: str, rule: Mapping[str, Any], context: Context) -> list[I
 
     """
     sidecar_rule = path.startswith('rules.sidecars')
-    if sidecar_rule and context.extension in _NO_SIDECAR:
+    if sidecar_rule and context.extension in _NO_SIDECAR_EXTENSIONS:
         return []
     data: Mapping[str, Any] = (context.sidecar if sidecar_rule else context.json) or {}
     schema = context.schema
@@ -97,60 +134,20 @@ def field_issues(path: str, rule: Mapping[str, Any], context: Context) -> list[I
         definition = metadata[key]
         name = str(definition['name'])
         if name not in data:
-            severity = _severity(requirement, context)
+            severity = _missing_field_severity(requirement, context)
             if severity is None or (derivative and not written_for_derivatives):
                 continue
-            issues.append(_missing(context, path, name, requirement, severity, sidecar_rule))
+            issues.append(
+                _missing_field_issue(context, path, name, requirement, severity, sidecar_rule)
+            )
             continue
-        issues += _wrong_value(context, path, name, data[name], definition, formats, sidecar_rule)
+        issues += _wrong_value_issues(
+            context, path, name, data[name], definition, formats, sidecar_rule
+        )
     return issues
 
 
-def inheritance_issues(context: Context) -> list[Issue]:
-    """Warn where a deeper JSON file changes a value set by a JSON file above it.
-
-    The deeper value is the one that applies (that is the inheritance principle),
-    but a dataset that sets a field twice to different values is usually a mistake.
-    Reported on the deeper file, once per data file that inherits both. Values are
-    compared by content, so the same list written twice is not an override.
-    """
-    if is_directory(context) or context.extension == '.json':
-        return []
-    try:
-        chain = list(walk_back(context.file, inherit=True))
-    except ValidationError:
-        return []  # ambiguous: reported by the integrity checks
-    applied: dict[str, Any] = {}
-    origin: dict[str, str] = {}
-    issues: list[Issue] = []
-    for json in chain:  # nearest first
-        if not isinstance(json, FileTree):
-            continue  # only a search for several targets yields lists
-        try:
-            contents = load_json(json)
-        except ValidationError:
-            continue
-        for key, value in contents.items():
-            if key not in applied:
-                applied[key] = value
-                origin[key] = json.relative_path
-            elif not json_equal(applied[key], value):
-                issues.append(
-                    coded_issue(
-                        context.schema,
-                        'SIDECAR_FIELD_OVERRIDE',
-                        sub_code=key,
-                        location=origin[key],
-                        message=(
-                            f'{key} = {applied[key]!r} overrides {value!r} '
-                            f'from {json.relative_path}'
-                        ),
-                    )
-                )
-    return issues
-
-
-def _severity(requirement: Any, context: Context) -> Severity | None:
+def _missing_field_severity(requirement: Any, context: Context) -> Severity | None:
     """Return the severity of a missing field, or None when it need not be reported.
 
     A requirement is a level (``"recommended"``) or ``{level: ..., level_addendum:
@@ -164,7 +161,7 @@ def _severity(requirement: Any, context: Context) -> Severity | None:
     severity = _LEVELS.get(str(requirement.get('level')))
     addendum = requirement.get('level_addendum')
     if addendum:
-        found = _ADDENDUM.search(str(addendum))
+        found = _LEVEL_ADDENDUM.search(str(addendum))
         if found:
             level, key, value = found.groups()
             if context.sidecar.get(key) == value:
@@ -172,7 +169,7 @@ def _severity(requirement: Any, context: Context) -> Severity | None:
     return severity
 
 
-def _missing(
+def _missing_field_issue(
     context: Context,
     path: str,
     name: str,
@@ -184,20 +181,20 @@ def _missing(
     location = context.file.relative_path
     own = requirement.get('issue') if isinstance(requirement, Mapping) else None
     if isinstance(own, Mapping) and own.get('code') and own.get('message'):
-        return schema_issue(own, location=location, severity=severity, sub_code=name, rule=path)
-    kind = 'SIDECAR_KEY' if sidecar_rule else 'JSON_KEY'
-    level = 'REQUIRED' if severity is Severity.ERROR else 'RECOMMENDED'
-    return coded_issue(
-        context.schema,
-        f'{kind}_{level}',
-        location=location,
-        sub_code=name,
-        rule=path,
-        message=f'the {level.lower()} field {name!r} is missing',
+        definition = IssueDefinition.from_schema(own, severity=severity)
+        return definition.make_issue(location, sub_code=name, rule=path)
+    required = severity is Severity.ERROR
+    if sidecar_rule:
+        definition = SIDECAR_KEY_REQUIRED if required else SIDECAR_KEY_RECOMMENDED
+    else:
+        definition = JSON_KEY_REQUIRED if required else JSON_KEY_RECOMMENDED
+    level = 'required' if required else 'recommended'
+    return definition.make_issue(
+        location, sub_code=name, rule=path, message=f'the {level} field {name!r} is missing'
     )
 
 
-def _wrong_value(
+def _wrong_value_issues(
     context: Context,
     path: str,
     name: str,
@@ -210,24 +207,24 @@ def _wrong_value(
 
     A sidecar value is reported on the JSON file it came from, and only the first time
     any data file brings it up: a wrong value in a JSON at the dataset root is one
-    problem, not one per recording.
+    problem, not one per recording. The dataset remembers which values it has checked,
+    as the reference validator's does (``sidecarKeyValidated``).
     """
     if sidecar_rule:
-        location = sidecar_origins(context.file).get(name, '')
+        location = context.sidecar_origins.get(name, '')
         address = f'{location}:{name}'
         if address in context.dataset.checked_sidecar_values:
             return []
         context.dataset.checked_sidecar_values.add(address)
     else:
         location = context.file.relative_path
+    problems = value_errors(value, definition, formats)
+    if not problems:
+        return []
+    invalid = IssueDefinition.from_schema(
+        context.schema['rules']['errors']['JsonSchemaValidationError']
+    )
     return [
-        coded_issue(
-            context.schema,
-            'JSON_SCHEMA_VALIDATION_ERROR',
-            location=location,
-            sub_code=name,
-            rule=path,
-            message=f'{name} {problem}',
-        )
-        for problem in value_errors(value, definition, formats)
+        invalid.make_issue(location, sub_code=name, rule=path, message=f'{name} {problem}')
+        for problem in problems
     ]

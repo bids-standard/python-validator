@@ -18,6 +18,8 @@ from upath import UPath
 from .types import _typings as t
 from .types.files import FileTree
 
+# The same trick as ``typing.TYPE_CHECKING``, without importing ``typing``: False when
+# the program runs, so the imports below are only seen by type checkers (mypy, pyright).
 TYPE_CHECKING = False
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -83,15 +85,17 @@ class ValidationError(Exception):
         self.location = location
 
 
-class Record(dict[str, t.Any]):
+class FileContents(dict[str, t.Any]):
     """The contents of a file (a JSON object, a table's columns) with attribute access.
 
-    Like a bidsschematools ``Namespace``, a field can be read as ``record.Field``.
+    Like a bidsschematools ``Namespace``, a field can be read as ``contents.Field``.
     Unlike one, a key is only ever a key. A ``Namespace`` reads ``"key_resp.rt"`` as a
     path into nested objects and cannot even list a mapping that holds such a key,
     and table columns written by tools such as PsychoPy contain dots.
     """
 
+    # Called for ``contents.Field`` when ``Field`` is not a normal attribute: read it as
+    # the key ``'Field'``. The expression language reads ``sidecar.RepetitionTime`` so.
     def __getattr__(self, name: str) -> t.Any:
         try:
             return self[name]
@@ -103,6 +107,8 @@ class Record(dict[str, t.Any]):
         return dict(self)
 
 
+# Datatype -> modality (``anat`` -> ``mri``), filled from the schema on first use by
+# ``datatype_to_modality``.
 _DATATYPE_MAP: dict[str, str] = {}
 
 # Rows of a table read for the checks: the reference validator's ``--max-rows``
@@ -127,7 +133,7 @@ def datatype_to_modality(datatype: str, schema: Namespace) -> str | None:
 
 def _read_columns(
     lines: t.Iterable[str], headers: list[str], *, max_rows: int, first_line: int
-) -> Record:
+) -> FileContents:
     """Split table rows into columns, enforcing the shape the reference validator does.
 
     A row with a different number of cells than there are headers raises
@@ -154,13 +160,13 @@ def _read_columns(
                 line=number,
             )
         rows.append(values)
-    return Record(
+    return FileContents(
         (header, tuple(row[index] for row in rows)) for index, header in enumerate(headers)
     )
 
 
 @cache
-def load_tsv(file: FileTree, *, max_rows: int = 0) -> Record:
+def load_tsv(file: FileTree, *, max_rows: int = 0) -> FileContents:
     """Load TSV contents into columns, keyed by header.
 
     A UTF-8 byte order mark is dropped. Raises :class:`ValidationError` with the code
@@ -178,7 +184,7 @@ def load_tsv(file: FileTree, *, max_rows: int = 0) -> Record:
 
 
 @cache
-def load_tsv_gz(file: FileTree, headers: tuple[str], *, max_rows: int = 0) -> Record:
+def load_tsv_gz(file: FileTree, headers: tuple[str], *, max_rows: int = 0) -> FileContents:
     """Load a headerless, gzipped TSV, whose headers come from its sidecar's ``Columns``.
 
     Raises :class:`ValidationError`: ``INVALID_GZIP`` when it does not decompress,
@@ -193,7 +199,7 @@ def load_tsv_gz(file: FileTree, headers: tuple[str], *, max_rows: int = 0) -> Re
 
 
 @cache
-def load_json(file: FileTree) -> Record:
+def load_json(file: FileTree) -> FileContents:
     """Load the contents of a JSON file.
 
     Raises :class:`ValidationError` with the code the reference validator reports:
@@ -213,7 +219,7 @@ def load_json(file: FileTree) -> Record:
         raise ValidationError('JSON_INVALID', str(error)) from error
     if not isinstance(contents, dict):
         raise ValidationError('JSON_NOT_AN_OBJECT', type(contents).__name__)
-    return Record(contents)
+    return FileContents(contents)
 
 
 # What nibabel raises for an empty, truncated or mislabelled image, plus the TypeError
@@ -392,14 +398,15 @@ class Dataset:
     ignored: list[str] = attrs.field(factory=list)
     subjects: Subjects = attrs.field(init=False)
     # "location:key" of every sidecar value already checked against the schema, so a
-    # value in a shared sidecar is reported once, not once per data file using it.
+    # value in a shared sidecar is reported once, not once per data file using it. The
+    # reference validator keeps the same set on its dataset (``sidecarKeyValidated``).
     checked_sidecar_values: set[str] = attrs.field(factory=set, init=False)
 
     def __attrs_post_init__(self) -> None:
         self.subjects = Subjects(self.tree)
 
     @cached_property
-    def dataset_description(self) -> Record:
+    def dataset_description(self) -> FileContents:
         """Contents of '/dataset_description.json', with ``DatasetType`` filled in.
 
         A missing or unreadable file gives an empty description (the integrity checks
@@ -408,11 +415,11 @@ class Dataset:
         default, every rule selecting ``DatasetType == "raw"`` skips the many datasets
         that leave the field out.
         """
-        description = Record()
+        description = FileContents()
         node = self.tree.children.get('dataset_description.json')
         if node is not None:
             try:
-                description = Record(load_json(node))  # a copy: load_json is cached
+                description = FileContents(load_json(node))  # a copy: load_json is cached
             except (ValidationError, OSError):
                 pass
         if not description.get('DatasetType'):
@@ -484,46 +491,37 @@ def load_events(file: FileTree) -> None:  # -> ctx.Events:
 
 
 def load_sidecar(file: FileTree) -> dict[str, t.Any]:
-    """Load sidecar metadata, using the inheritance principle."""
-    # Uses walk back algorithm
-    # https://bids-validator.readthedocs.io/en/latest/validation-model/inheritance-principle.html
-    # Accumulates all sidecars
-    metadata: dict[str, t.Any] = {}
+    """Load sidecar metadata, using the inheritance principle.
 
-    for json in walk_back(file, inherit=True):
-        # May need to overload walk_back
+    For one file on its own. A validation reads :attr:`Context.sidecar` instead, which
+    reuses the chain of JSON files the context found once.
+    """
+    return _merge_sidecars(_sidecar_files(file))
+
+
+def _sidecar_files(file: FileTree) -> tuple[FileTree, ...]:
+    """Return the JSON files ``file`` inherits metadata from, nearest first.
+
+    Uses the walk back algorithm:
+    https://bids-validator.readthedocs.io/en/latest/validation-model/inheritance-principle.html
+    Raises :class:`ValidationError` (``MULTIPLE_INHERITABLE_FILES``) when one level has
+    several equally good candidates.
+    """
+    # walk_back yields lists only when it searches for several targets; not here.
+    return tuple(json for json in walk_back(file, inherit=True) if isinstance(json, FileTree))
+
+
+def _merge_sidecars(jsons: t.Iterable[FileTree]) -> dict[str, t.Any]:
+    """Merge JSON files given nearest first: the nearest file's value of a key wins."""
+    metadata: dict[str, t.Any] = {}
+    for json in jsons:
         try:
-            metadata = load_json(json) | metadata  # type: ignore[arg-type]
+            metadata = load_json(json) | metadata
         except ValidationError:
             # A sidecar that does not parse is reported when it is checked itself;
             # the others still apply, as in the reference validator.
             continue
-
     return metadata
-
-
-@cache
-def sidecar_origins(file: FileTree) -> dict[str, str]:
-    """Map each key of a file's sidecar to the dataset-relative path of its JSON file.
-
-    The nearest JSON wins, as in :func:`load_sidecar`. A finding about a key's value
-    belongs to the file that holds it, not to every data file inheriting it. An
-    ambiguous chain gives no origins (its sidecar is empty too).
-    """
-    origins: dict[str, str] = {}
-    try:
-        for json in walk_back(file, inherit=True):
-            if not isinstance(json, FileTree):
-                continue  # only a search for several targets yields lists
-            try:
-                keys = load_json(json).keys()
-            except ValidationError:
-                continue
-            for key in keys:
-                origins.setdefault(key, json.relative_path)
-    except ValidationError:
-        return {}
-    return origins
 
 
 def walk_back(
@@ -704,7 +702,7 @@ class Context:
         return ctx.Associations()
 
     @cached_property
-    def columns(self) -> Record | None:
+    def columns(self) -> FileContents | None:
         """TSV columns, indexed by column header, values are arrays with column contents.
 
         A table that cannot be read gives empty columns; the integrity checks report
@@ -713,9 +711,9 @@ class Context:
         try:
             return self.read_columns()
         except (ValidationError, OSError, UnicodeDecodeError):
-            return Record()
+            return FileContents()
 
-    def read_columns(self) -> Record | None:
+    def read_columns(self) -> FileContents | None:
         """Read this file's table, raising :class:`ValidationError` if it is malformed.
 
         The first :data:`TSV_MAX_ROWS` rows are read. A ``.tsv.gz`` has no header row:
@@ -726,23 +724,23 @@ class Context:
         """
         if self.extension == '.tsv':
             if self.suffix == 'motion':
-                return Record()
+                return FileContents()
             return load_tsv(self.file, max_rows=TSV_MAX_ROWS)
         if self.extension == '.tsv.gz':
             headers = self.sidecar.get('Columns')
             if not isinstance(headers, list) or not headers or self.size == 0:
-                return Record()
+                return FileContents()
             return load_tsv_gz(self.file, tuple(str(h) for h in headers), max_rows=TSV_MAX_ROWS)
         return None
 
     @cached_property
-    def json(self) -> Record | None:
+    def json(self) -> FileContents | None:
         """Contents of the current JSON file; empty when it cannot be read."""
         if self.file_parts.extension == '.json':
             try:
                 return load_json(self.file)
             except (ValidationError, OSError):
-                return Record()
+                return FileContents()
 
         return None
 
@@ -775,7 +773,47 @@ class Context:
         """TIFF file format metadata."""
 
     @cached_property
-    def sidecar(self) -> Record:
+    def sidecar_files(self) -> tuple[FileTree, ...]:
+        """The JSON files this file inherits metadata from, nearest first.
+
+        Found once per file, because walking up the tree is the costly part, and read
+        by :attr:`sidecar`, :attr:`sidecar_origins`, the integrity checks (which report
+        an ambiguous chain) and the inheritance checks (which report a deeper file
+        changing a value). Kept only as long as this context.
+
+        A JSON file has none: it is a sidecar, it does not have one (as in the
+        reference validator). Raises :class:`ValidationError`
+        (``MULTIPLE_INHERITABLE_FILES``) when one level has several equally good
+        candidates; an error is not cached, so every reader gets it.
+        """
+        if self.extension == '.json':
+            return ()
+        return _sidecar_files(self.file)
+
+    @cached_property
+    def sidecar_origins(self) -> dict[str, str]:
+        """Map each key of :attr:`sidecar` to the dataset-relative path of its JSON file.
+
+        A finding about a key's value belongs to the file that holds it, not to every
+        data file inheriting it. An ambiguous chain gives no origins (its sidecar is
+        empty too).
+        """
+        try:
+            files = self.sidecar_files
+        except ValidationError:
+            return {}
+        origins: dict[str, str] = {}
+        for json in files:
+            try:
+                keys = load_json(json).keys()
+            except ValidationError:
+                continue
+            for key in keys:
+                origins.setdefault(key, json.relative_path)  # the nearest file wins
+        return origins
+
+    @cached_property
+    def sidecar(self) -> FileContents:
         """Sidecar metadata constructed via the inheritance principle.
 
         As in the reference validator: a JSON file has no sidecar (it is one), so its
@@ -784,12 +822,10 @@ class Context:
         rounded to milliseconds, so a header and a sidecar that differ only by float
         noise do not disagree.
         """
-        if self.extension == '.json':
-            return Record()
         try:
-            sidecar = Record(load_sidecar(self.file))
+            sidecar = FileContents(_merge_sidecars(self.sidecar_files))
         except (ValidationError, OSError):
-            return Record()
+            return FileContents()
         repetition_time = sidecar.get('RepetitionTime')
         if isinstance(repetition_time, (int, float)) and not isinstance(repetition_time, bool):
             # JavaScript's Math.round (half up), not Python's round (half to even).

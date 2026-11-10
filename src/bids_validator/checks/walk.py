@@ -23,6 +23,7 @@ with its rules (``src/schema/walk.ts``, ``src/files/ignore.ts`` and
   own root.
 """
 
+# Lets type hints name classes that are only imported for type checkers (below).
 from __future__ import annotations
 
 from collections.abc import Iterator
@@ -30,21 +31,25 @@ from typing import TYPE_CHECKING
 
 from bidsschematools.types.context import Subject
 
-from .bidsignore import Ignore, IgnoreMany
-from .context import Context, Dataset, FileParts, Sessions
+from ..bidsignore import Ignore, IgnoreMany
+from ..context import Context, Dataset, FileParts, Sessions
+from .schema_cache import once_per_schema
 
+# Imported only for type hints; never imported when the program runs.
 if TYPE_CHECKING:
     from bidsschematools.types.namespace import Namespace
 
-    from .bidsignore import HasMatch
-    from .types.files import FileTree
+    from ..bidsignore import HasMatch
+    from ..types.files import FileTree
 
+# The names other modules are meant to import from this one.
 __all__ = [
+    'BIDSIGNORE',
     'DEFAULT_IGNORES',
     'DERIVATIVES_DIR',
     'PRUNED',
     'build_ignore',
-    'is_directory',
+    'is_plain_folder',
     'iter_contexts',
 ]
 
@@ -55,12 +60,12 @@ DEFAULT_IGNORES = ('/sourcedata/', '/derivatives/', '/code/', '/stimuli/', '/log
 # The reference validator's default "prune" group: hidden files and folders at every
 # level (.git, .DS_Store, .datalad ...). Its exception, .bidsignore, is handled by name.
 PRUNED = ('.**',)
+
+# The dataset's own ignore list. It is visited (and checked) although it is hidden.
 BIDSIGNORE = '.bidsignore'
 
+# The folder a raw dataset keeps its derivative datasets in; skipped at any depth.
 DERIVATIVES_DIR = 'derivatives'
-
-# Per-schema caches. Schema objects live for the process, so id() is stable.
-_RECORDING_EXT_MEMO: dict[int, frozenset[str]] = {}
 
 
 def iter_contexts(dataset: Dataset, ignore: HasMatch | None = None) -> Iterator[Context]:
@@ -78,13 +83,14 @@ def iter_contexts(dataset: Dataset, ignore: HasMatch | None = None) -> Iterator[
     Context
         One per visited file or folder, depth first, files before folders as in the
         reference validator. A folder's context has ``context.file.is_dir`` true; use
-        :func:`is_directory` to tell a plain folder from a directory recording.
+        :func:`is_plain_folder` to tell a plain folder from a directory recording.
 
     """
     if ignore is None:
         ignore = build_ignore(dataset.tree)
-    raw = str(dataset.dataset_description.get('DatasetType')) == 'raw'
-    yield from _walk(dataset.tree, dataset, ignore, raw, _opaque_names(dataset), subject=None)
+    kind = str(dataset.dataset_description.get('DatasetType'))
+    opaque = _opaque_folders(dataset.schema).get(kind, frozenset())
+    yield from _walk(dataset.tree, dataset, ignore, kind == 'raw', opaque, subject=None)
 
 
 def build_ignore(tree: FileTree) -> IgnoreMany:
@@ -96,7 +102,7 @@ def build_ignore(tree: FileTree) -> IgnoreMany:
     return IgnoreMany(ignores)
 
 
-def is_directory(context: Context) -> bool:
+def is_plain_folder(context: Context) -> bool:
     """Whether the context is a plain folder, as opposed to a file or a recording.
 
     A directory recording (``sub-01_task-x_meg.ds/``) is a folder on disk but a file
@@ -122,11 +128,11 @@ def _walk(
 
     children = list(tree.children.values())
     for child in children:
-        if not child.is_dir and _visited(child, ignore):
+        if not child.is_dir and _is_visited(child, ignore):
             yield Context(child, dataset, subject)
 
     for child in children:
-        if not child.is_dir or not _visited(child, ignore):
+        if not child.is_dir or not _is_visited(child, ignore):
             continue
         if raw and child.name == DERIVATIVES_DIR:
             continue  # a separate dataset with separate rules
@@ -138,7 +144,7 @@ def _walk(
         yield from _walk(child, dataset, ignore, raw, opaque, subject)
 
 
-def _visited(node: FileTree, ignore: HasMatch) -> bool:
+def _is_visited(node: FileTree, ignore: HasMatch) -> bool:
     """Whether a file or folder is visited: not ignored, or the .bidsignore itself."""
     if node.relative_path == BIDSIGNORE:
         return True
@@ -161,25 +167,24 @@ def _is_recording(node: FileTree, schema: Namespace) -> bool:
     )
 
 
+@once_per_schema
 def _recording_extensions(schema: Namespace) -> frozenset[str]:
     """Return the schema's directory-recording extensions, with their trailing ``/``."""
-    cached = _RECORDING_EXT_MEMO.get(id(schema))
-    if cached is None:
-        cached = frozenset(
-            str(definition['value'])
-            for definition in schema['objects']['extensions'].values()
-            if str(definition.get('value', '')).endswith('/')
-        )
-        _RECORDING_EXT_MEMO[id(schema)] = cached
-    return cached
-
-
-def _opaque_names(dataset: Dataset) -> frozenset[str]:
-    """Top-level folders the schema marks opaque for this kind of dataset."""
-    kind = str(dataset.dataset_description.get('DatasetType'))
-    rules = dataset.schema['rules']['directories'].get(kind, {})
     return frozenset(
-        str(rules[key]['name'])
-        for key in rules
-        if rules[key].get('opaque') and 'name' in rules[key].keys()  # noqa: SIM118
+        str(definition['value'])
+        for definition in schema['objects']['extensions'].values()
+        if str(definition.get('value', '')).endswith('/')
     )
+
+
+@once_per_schema
+def _opaque_folders(schema: Namespace) -> dict[str, frozenset[str]]:
+    """Top-level folders the schema marks opaque, for each kind of dataset (raw, derivative)."""
+    opaque: dict[str, frozenset[str]] = {}
+    for kind, rules in schema['rules']['directories'].items():
+        opaque[str(kind)] = frozenset(
+            str(rules[key]['name'])
+            for key in rules
+            if rules[key].get('opaque') and 'name' in rules[key].keys()  # noqa: SIM118
+        )
+    return opaque

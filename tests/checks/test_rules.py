@@ -7,25 +7,27 @@ import pytest
 from bidsschematools.types.namespace import Namespace
 
 from bids_validator.checks import collect_issues
-from bids_validator.context import Context, Dataset
-from bids_validator.issues import Severity
-from bids_validator.rule_checks import (
+from bids_validator.checks.rules import (
     NOT_ENABLED_YET,
-    PAYLOADS,
+    PAYLOAD_HANDLERS,
     apply_rule,
-    names_read,
+    names_read_by,
     rule_issues,
     runnable_rules,
 )
+from bids_validator.context import Context, Dataset
+from bids_validator.issues import Severity
 from bids_validator.types.files import FileTree
 
-from .helpers import FULL_DESCRIPTION, LONG_README, gzipped, nifti, write
+from ..helpers import FULL_DESCRIPTION, LONG_README, gzipped, nifti, write
 
 
 def rule_codes(root: pathlib.Path, schema: Namespace) -> set[tuple[str, str]]:
     """Return ``{(code, location)}`` for every rule finding in the dataset."""
     tree = FileTree.read_from_filesystem(str(root))
-    issues = collect_issues(tree, schema, checks=(rule_issues,), dataset_checks=())
+    issues = collect_issues(
+        tree, schema, dataset_checks=(), folder_checks=(), file_checks=(rule_issues,)
+    )
     return {(issue.code, issue.location or '') for issue in issues}
 
 
@@ -38,7 +40,7 @@ def test_only_unbuilt_parts_of_the_context_are_held_back() -> None:
 
 def test_no_runnable_rule_reads_a_held_back_name(schema: Namespace) -> None:
     for path, rule in runnable_rules(schema):
-        for name in names_read(rule):
+        for name in names_read_by(rule):
             blocked = [p for p in NOT_ENABLED_YET if name == p or name.startswith(f'{p}.')]
             assert not blocked, (path, name, blocked)
 
@@ -66,12 +68,18 @@ def test_rules_reading_associations_wait(schema: Namespace) -> None:
         ('type(null) == "null"', set()),
     ],
 )
-def test_names_read(expression: str, expected: set[str]) -> None:
-    assert names_read({'checks': [expression]}) == expected
+def test_names_read_by(expression: str, expected: set[str]) -> None:
+    assert names_read_by({'checks': [expression]}) == expected
 
 
 def test_payloads_in_the_reference_order() -> None:
-    assert list(PAYLOADS) == ['checks', 'columns', 'initial_columns', 'index_columns', 'fields']
+    assert list(PAYLOAD_HANDLERS) == [
+        'checks',
+        'columns',
+        'initial_columns',
+        'index_columns',
+        'fields',
+    ]
 
 
 # --- rules failing on bad data and quiet on good data -----------------------

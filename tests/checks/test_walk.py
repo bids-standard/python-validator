@@ -6,11 +6,11 @@ import pathlib
 import pytest
 from bidsschematools.types.namespace import Namespace
 
+from bids_validator.checks.walk import DEFAULT_IGNORES, is_plain_folder, iter_contexts
 from bids_validator.context import Dataset
 from bids_validator.types.files import FileTree
-from bids_validator.walk import DEFAULT_IGNORES, is_directory, iter_contexts
 
-from .helpers import build
+from ..helpers import build
 
 
 def visited(root: pathlib.Path, schema: Namespace) -> list[str]:
@@ -125,15 +125,15 @@ def test_a_derivative_dataset_walks_its_own_folders(
     assert 'sub-01/anat/sub-01_desc-x_T1w.nii.gz' in visited(tmp_path, schema)
 
 
-def test_is_directory_tells_folders_from_recordings(
+def test_is_plain_folder_tells_folders_from_recordings(
     tmp_path: pathlib.Path, schema: Namespace
 ) -> None:
     build(tmp_path, 'sub-01/meg/sub-01_task-rest_meg.ds/BadChannels')
     tree = FileTree.read_from_filesystem(str(tmp_path))
     contexts = {c.file.relative_path: c for c in iter_contexts(Dataset(tree, schema))}
-    assert is_directory(contexts['sub-01/meg/'])
-    assert not is_directory(contexts['sub-01/meg/sub-01_task-rest_meg.ds/'])
-    assert not is_directory(contexts['dataset_description.json'])
+    assert is_plain_folder(contexts['sub-01/meg/'])
+    assert not is_plain_folder(contexts['sub-01/meg/sub-01_task-rest_meg.ds/'])
+    assert not is_plain_folder(contexts['dataset_description.json'])
 
 
 def test_each_context_knows_its_subject(tmp_path: pathlib.Path, schema: Namespace) -> None:

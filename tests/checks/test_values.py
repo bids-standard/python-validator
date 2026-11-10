@@ -5,7 +5,7 @@ import typing as ty
 import pytest
 from bidsschematools.types.namespace import Namespace
 
-from bids_validator.values import json_equal, value_errors
+from bids_validator.checks.values import json_equal, value_errors
 
 FORMATS = {
     'index': {'pattern': '[0-9]+'},

@@ -23,6 +23,8 @@ match:
   position inside the value when the problem is nested (``/0 must be string``).
 """
 
+# Lets type hints name types before they are defined; kept for consistency with the
+# other modules.
 from __future__ import annotations
 
 import math
@@ -31,8 +33,11 @@ import re
 from collections.abc import Callable, Mapping
 from typing import Any, TypeGuard
 
+# The names other modules are meant to import from this one.
 __all__ = ['json_equal', 'value_errors']
 
+# The four number bounds of JSON Schema, in ajv's order: (keyword, the sign ajv prints in
+# its message, the test the value must pass). ``operator.le(a, b)`` is ``a <= b``.
 _COMPARISONS: tuple[tuple[str, str, Callable[[float, float], bool]], ...] = (
     ('maximum', '<=', operator.le),
     ('minimum', '>=', operator.ge),
@@ -62,7 +67,7 @@ def value_errors(value: Any, definition: Any, formats: Mapping[str, Any]) -> lis
     return _errors(value, definition, formats, '')
 
 
-def _errors(value: Any, schema: Any, formats: Mapping[str, Any], at: str) -> list[str]:
+def _errors(value: Any, schema: Any, formats: Mapping[str, Any], position: str) -> list[str]:
     """Return the errors of one value at one position, in ajv's keyword order."""
     if not isinstance(schema, Mapping):
         return []
@@ -70,69 +75,71 @@ def _errors(value: Any, schema: Any, formats: Mapping[str, Any], at: str) -> lis
     expected = schema.get('type')
     if expected is not None and not _has_type(value, expected):
         names = ','.join(expected) if isinstance(expected, list) else str(expected)
-        return [_at(at, f'must be {names}')]
+        return [_with_position(position, f'must be {names}')]
 
     if 'enum' in schema.keys() and not any(json_equal(value, option) for option in schema['enum']):  # noqa: SIM118
-        return [_at(at, 'must be equal to one of the allowed values')]
+        return [_with_position(position, 'must be equal to one of the allowed values')]
 
     alternatives = schema.get('anyOf')
     if isinstance(alternatives, list):
-        branches = [_errors(value, alternative, formats, at) for alternative in alternatives]
+        branches = [_errors(value, alternative, formats, position) for alternative in alternatives]
         if all(branches):
-            return [errors[0] for errors in branches] + [_at(at, 'must match a schema in anyOf')]
+            return [errors[0] for errors in branches] + [
+                _with_position(position, 'must match a schema in anyOf')
+            ]
 
     if _is_number(value):
         for keyword, sign, holds in _COMPARISONS:
             limit = schema.get(keyword)
             if _is_number(limit) and not holds(value, limit):
-                return [_at(at, f'must be {sign} {limit}')]
+                return [_with_position(position, f'must be {sign} {limit}')]
 
     if isinstance(value, str):
         name = schema.get('format')
         pattern = formats.get(name, {}).get('pattern') if name else None
         if pattern is not None and re.search(str(pattern), value) is None:
-            return [_at(at, f'must match format "{name}"')]
+            return [_with_position(position, f'must match format "{name}"')]
 
     if isinstance(value, list):
-        return _array_errors(value, schema, formats, at)
+        return _array_errors(value, schema, formats, position)
 
     if isinstance(value, Mapping):
-        return _object_errors(value, schema, formats, at)
+        return _object_errors(value, schema, formats, position)
 
     return []
 
 
 def _array_errors(
-    value: list[Any], schema: Mapping[str, Any], formats: Mapping[str, Any], at: str
+    value: list[Any], schema: Mapping[str, Any], formats: Mapping[str, Any], position: str
 ) -> list[str]:
     if _is_number(schema.get('maxItems')) and len(value) > schema['maxItems']:
-        return [_at(at, f'must NOT have more than {schema["maxItems"]} items')]
+        return [_with_position(position, f'must NOT have more than {schema["maxItems"]} items')]
     if _is_number(schema.get('minItems')) and len(value) < schema['minItems']:
-        return [_at(at, f'must NOT have fewer than {schema["minItems"]} items')]
+        return [_with_position(position, f'must NOT have fewer than {schema["minItems"]} items')]
     items = schema.get('items')
     if isinstance(items, Mapping):
         for index, item in enumerate(value):
-            errors = _errors(item, items, formats, f'{at}/{index}')
+            errors = _errors(item, items, formats, f'{position}/{index}')
             if errors:
                 return errors
     return []
 
 
 def _object_errors(
-    value: Mapping[str, Any], schema: Mapping[str, Any], formats: Mapping[str, Any], at: str
+    value: Mapping[str, Any], schema: Mapping[str, Any], formats: Mapping[str, Any], position: str
 ) -> list[str]:
     for name in schema.get('required', []) or []:
         if name not in value:
-            return [_at(at, f"must have required property '{name}'")]
+            return [_with_position(position, f"must have required property '{name}'")]
     properties = schema.get('properties') or {}
     if schema.get('additionalProperties') is False and any(
         key not in properties.keys()  # noqa: SIM118
         for key in value
     ):
-        return [_at(at, 'must NOT have additional properties')]
+        return [_with_position(position, 'must NOT have additional properties')]
     for name in properties.keys():  # noqa: SIM118
         if name in value:
-            errors = _errors(value[name], properties[name], formats, f'{at}/{name}')
+            errors = _errors(value[name], properties[name], formats, f'{position}/{name}')
             if errors:
                 return errors
     return []
@@ -180,6 +187,6 @@ def json_equal(value: Any, option: Any) -> bool:
     return type(value) is type(option) and bool(value == option)
 
 
-def _at(at: str, message: str) -> str:
-    """Prefix a message with the position inside the value, when there is one."""
-    return f'{at} {message}' if at else message
+def _with_position(position: str, message: str) -> str:
+    """Prefix a message with the position inside the value (``/0``), when there is one."""
+    return f'{position} {message}' if position else message

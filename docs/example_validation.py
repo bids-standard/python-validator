@@ -3,8 +3,8 @@
 Two modes:
 
 * No argument: build a small dataset in a temporary directory that contains one
-  deliberately broken file name per filename code, run only the filename checks on it,
-  and print the findings.
+  deliberately broken file name per filename code, run only the name checks (of files
+  and folders) on it, and print the findings.
 * With a path: run every check on your own dataset.
 
 Usage
@@ -18,15 +18,13 @@ from __future__ import annotations
 import json
 import sys
 import tempfile
-from collections.abc import Callable, Sequence
 from pathlib import Path
 
 from bidsschematools.schema import load_schema
 
-from bids_validator.checks import PER_FILE_CHECKS, collect_issues
-from bids_validator.context import Context
-from bids_validator.filename_checks import filename_issues
-from bids_validator.issues import Issue, Severity
+from bids_validator.checks import collect_issues
+from bids_validator.checks.filenames import filename_issues, folder_issues
+from bids_validator.issues import DatasetIssues, Severity
 from bids_validator.types.files import FileTree
 
 # Correctly named files. None of these produce a filename finding.
@@ -64,11 +62,8 @@ def build_dataset(root: Path) -> Path:
     return root
 
 
-def validate(root: Path, checks: Sequence[Callable[[Context], list[Issue]]]) -> None:
-    """Validate a dataset with the given checks and print every finding."""
-    tree = FileTree.read_from_filesystem(str(root))
-    issues = collect_issues(tree, load_schema(), checks=checks)
-
+def report(root: Path, issues: DatasetIssues) -> None:
+    """Print every finding of a validation."""
     errors = issues.by_severity(Severity.ERROR)
     warnings = issues.by_severity(Severity.WARNING)
 
@@ -91,13 +86,22 @@ def run_demo() -> None:
         for relpath, code in BROKEN_FILES.items():
             print(f'  {code:32} {relpath}')
         print()
-        validate(root, checks=(filename_issues,))
+        tree = FileTree.read_from_filesystem(str(root))
+        names_only = collect_issues(
+            tree,
+            load_schema(),
+            dataset_checks=(),
+            folder_checks=(folder_issues,),
+            file_checks=(filename_issues,),
+        )
+        report(root, names_only)
 
 
 def main(argv: list[str]) -> int:
     """Run the demo, or validate the dataset given as the first argument."""
     if argv:
-        validate(Path(argv[0]), checks=PER_FILE_CHECKS)
+        root = Path(argv[0])
+        report(root, collect_issues(FileTree.read_from_filesystem(str(root)), load_schema()))
     else:
         run_demo()
     return 0

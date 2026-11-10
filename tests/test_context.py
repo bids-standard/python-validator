@@ -119,7 +119,7 @@ def test_context(synthetic_dataset: FileTree, schema: Namespace) -> None:
     assert events_context.json is None
     assert events_context.gzip is None
     assert events_context.nifti_header is None
-    assert isinstance(events_context.columns, context.Record)
+    assert isinstance(events_context.columns, context.FileContents)
     assert 'onset' in events_context.columns
     assert len(events_context.columns.onset) == 42
 
@@ -130,7 +130,7 @@ def test_context(synthetic_dataset: FileTree, schema: Namespace) -> None:
     assert stim_context.gzip.filename == stim.name.removesuffix('.gz')
     assert stim_context.gzip.timestamp != 0
     assert stim_context.gzip.comment == ''
-    assert isinstance(stim_context.columns, context.Record)
+    assert isinstance(stim_context.columns, context.FileContents)
     assert list(stim_context.columns.keys()) == stim_context.sidecar.Columns
 
     ## Tests for:
@@ -483,9 +483,8 @@ def test_sidecar_origins_name_the_nearest_file(tmp_path: Path, schema: Namespace
             'sub-01/func/sub-01_task-x_bold.json': {'RepetitionTime': 3},
         },
     )
-    tree = FileTree.read_from_filesystem(tmp_path)
-    origins = context.sidecar_origins(tree / 'sub-01' / 'func' / 'sub-01_task-x_bold.nii.gz')
-    assert origins == {
+    ctx = _ctx(tmp_path, 'sub-01/func/sub-01_task-x_bold.nii.gz', schema)
+    assert ctx.sidecar_origins == {
         'RepetitionTime': 'sub-01/func/sub-01_task-x_bold.json',
         'TaskName': 'task-x_bold.json',
     }
@@ -514,8 +513,8 @@ def test_a_missing_description_is_empty_not_an_error(tmp_path: Path, schema: Nam
 
 
 def test_a_record_keeps_dotted_keys() -> None:
-    """A Namespace reads "key_resp.rt" as a path; a Record keeps it a key."""
-    record = context.Record({'key_resp.rt': (0.5,), 'onset': (1,)})
+    """A Namespace reads "key_resp.rt" as a path; a FileContents keeps it a key."""
+    record = context.FileContents({'key_resp.rt': (0.5,), 'onset': (1,)})
     assert list(record) == ['key_resp.rt', 'onset']
     assert record['key_resp.rt'] == (0.5,)
     assert record.onset == (1,)

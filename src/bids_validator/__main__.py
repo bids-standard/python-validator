@@ -1,6 +1,10 @@
 # ruff: noqa: D100
 # ruff: noqa: D103
+# (The two lines above tell the linter not to ask for a docstring on this module, D100,
+# or on its functions, D103. This file is what runs for ``bids-validator <dataset>``.)
 
+# typer is an optional dependency (``pip install bids_validator[cli]``): the library can
+# be used without it, so its absence is reported in a sentence, not a traceback.
 try:
     import typer
 except ImportError:
@@ -8,52 +12,26 @@ except ImportError:
     raise SystemExit(1) from None
 
 import sys
-from collections.abc import Iterator
 from typing import Annotated
 
 from bidsschematools.schema import load_schema
-from bidsschematools.types.context import Subject
 from bidsschematools.types.namespace import Namespace
 
-from bids_validator import BIDSValidator
-from bids_validator.context import Context, Dataset, Sessions
+from bids_validator.checks import collect_issues
+from bids_validator.issues import DatasetIssues, Severity
 from bids_validator.types.files import FileTree
 
+# The command-line application. ``@app.command()`` below turns ``main``'s parameters into
+# the command's arguments and options; ``app()`` at the bottom runs it.
 app = typer.Typer()
 
 
-def is_subject_dir(tree: FileTree) -> bool:
-    return tree.name.startswith('sub-')
+def validate(tree: FileTree, schema: Namespace, verbose: bool = False) -> DatasetIssues:
+    """Run every check on the dataset and report what is wrong.
 
-
-def walk(tree: FileTree, dataset: Dataset, subject: Subject | None = None) -> Iterator[Context]:
-    """Iterate over children of a FileTree and check if they are a directory or file.
-
-    If it's a directory then run again recursively, if it's a file file check the file name is
-    BIDS compliant.
-
-    Parameters
-    ----------
-    tree : FileTree
-        FileTree object to iterate over
-    dataset: Dataset
-        Object containing properties for entire dataset
-    subject: Subject
-        object containing subject and session info
-
-    """
-    if subject is None and is_subject_dir(tree):
-        subject = Subject(Sessions(tree))
-
-    for child in tree.children.values():
-        if child.is_dir:
-            yield from walk(child, dataset, subject)
-        else:
-            yield Context(child, dataset, subject)
-
-
-def validate(tree: FileTree, schema: Namespace) -> None:
-    """Check if the file path is BIDS compliant.
+    The walk and every check come from :func:`~bids_validator.checks.collect_issues`
+    (reading, inheritance, names and places, the schema's rules), so the CLI and any
+    library caller run exactly the same checks.
 
     Parameters
     ----------
@@ -61,14 +39,32 @@ def validate(tree: FileTree, schema: Namespace) -> None:
         Full FileTree object to iterate over and check
     schema : Namespace
         Schema object to validate dataset against
+    verbose : bool
+        Also print the schema rule each finding came from
+
+    Returns
+    -------
+    DatasetIssues
+        Every finding, so the caller can set an exit code.
 
     """
-    validator = BIDSValidator()
-    dataset = Dataset(tree, schema)
+    issues = collect_issues(tree, schema)
 
-    for file in walk(tree, dataset):
-        if not validator.is_bids(file.path):
-            print(f'{file.path} is not a valid bids filename')
+    for issue in issues:
+        print(f'{issue.severity.value}: {issue.code}: {issue.location or "(dataset)"}')
+        if issue.message:
+            print(f'    {issue.message}')
+        if verbose and issue.rule:
+            print(f'    rule: {issue.rule}')
+
+    errors = len(issues.by_severity(Severity.ERROR))
+    warnings = len(issues.by_severity(Severity.WARNING))
+    if issues:
+        print(f'\n{errors} error(s), {warnings} warning(s)')
+    else:
+        print('No problems found')
+
+    return issues
 
 
 def show_version() -> None:
@@ -97,6 +93,11 @@ def version_callback(value: bool) -> None:
         raise typer.Exit()
 
 
+# ``@app.command()`` registers ``main`` as the command. typer reads its parameters:
+# ``bids_path`` (no default) becomes the required argument, ``schema_path`` the option
+# ``--schema-path``, and ``Annotated[bool, typer.Option(...)]`` attaches the flag names and
+# help text to ``verbose`` and ``version``. ``is_eager`` runs ``--version`` before anything
+# else, and its callback exits.
 @app.command()
 def main(
     bids_path: str,
@@ -119,8 +120,15 @@ def main(
 
     schema = load_schema(schema_path)
 
-    validate(root_path, schema)
+    issues = validate(root_path, schema, verbose=verbose)
+
+    # A validator is normally run from a script or CI job, so the outcome has to be
+    # readable from the exit code, not only from the printed text.
+    if issues.has_errors:
+        raise typer.Exit(code=1)
 
 
+# True only when the file is run as a program (``python -m bids_validator``), not when it
+# is imported by a test.
 if __name__ == '__main__':
     app()

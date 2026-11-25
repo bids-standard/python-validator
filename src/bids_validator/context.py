@@ -400,6 +400,38 @@ class _BValBVecLoader(Association):
         return len(self.content)
 
 @attrs.define
+class _TSVLoader(Association):
+    """Generic loader for TSV files."""
+
+    content: Namespace = attrs.field(init=False)
+
+    def __attrs_post_init__(self):
+        self.content = load_tsv(self._file)
+
+
+@attrs.define
+class Aslcontext(_TSVLoader):
+    """Parses a BIDS ``*_aslcontext.tsv`` file for validation context extraction."""
+
+    @property
+    def volume_type(self):
+        """Contents of the volume_type column."""
+        return self.content.volume_type
+
+    @property
+    def n_rows(self):
+        """Number of rows in aslcontext.tsv."""
+        return len(self.volume_type)
+
+    def to_context(self) -> ctx.Aslcontext:
+        """Build the validation context representation for this association."""
+        return ctx.Aslcontext(
+            path = self.path,
+            n_rows = self.n_rows,
+            volume_type = self.volume_type
+        )
+
+@attrs.define
 class AtlasDescription(Association):
     """Extracts the path of a BIDS ``atlas_description.json`` file for validation context."""
 
@@ -435,6 +467,34 @@ class BVal(_BValBVecLoader):
             n_cols=self.n_cols,
             n_rows=self.n_rows,
             values=self.values,
+        )
+
+@attrs.define
+class Channels(_TSVLoader):
+    """Parses a BIDS ``*_channels.tsv`` file for validation context extraction."""
+
+    @property
+    def sampling_frequency(self):
+        """Contents of the sampling_frequency column."""
+        return self.content.sampling_frequency
+
+    @property
+    def short_channel(self):
+        """Contents of the short_channel column."""
+        return self.content.short_channel
+
+    @property
+    def type(self):
+        """Contents of the type column."""
+        return self.content.type
+
+    def to_context(self) -> ctx.Channels:
+        """Build the validation context representation for this association."""
+        return ctx.Channels(
+            path = self.path,
+            sampling_frequency = self.sampling_frequency,
+            short_channel = self.short_channel,
+            type = self.type
         )
 
 @attrs.define

@@ -1,14 +1,17 @@
 """Implementation of the BIDS schema expression language."""
 
+from __future__ import annotations
+
 import operator
 import re
 from collections.abc import Sequence
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 from typing import Literal as L
 
 from bidsschematools import expressions as bst_expr
 
-from bids_validator.context import Context
+if TYPE_CHECKING:
+    from bids_validator.context import Context
 
 T = TypeVar('T', bound=str | int | float)
 

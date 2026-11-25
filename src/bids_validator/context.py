@@ -5,6 +5,7 @@ from __future__ import annotations
 import gzip
 import itertools
 import struct
+from collections.abc import Iterable
 from functools import cache
 
 import attrs
@@ -14,6 +15,7 @@ from bidsschematools.types import context as ctx
 from bidsschematools.types.namespace import Namespace
 from upath import UPath
 
+from . import expression_language as el
 from .types import _typings as t
 from .types.files import FileTree
 
@@ -373,6 +375,282 @@ def _walk_back(
         tree = tree.parent
 
 
+@cache
+def load_bvecbval(file: FileTree):
+    """Load contents of a bvec or bval file."""
+    with file.path_obj.open() as fobj:
+        lines = fobj.read().splitlines()
+        return [line.split(' ') for line in lines]
+
+
+@attrs.define
+class _BValBVecLoader(Association):
+    """Generic loader class for BVal and BVec files."""
+
+    content: list = attrs.field(init=False)
+
+    def __attrs_post_init__(self):
+        self.content = load_bvecbval(self._file)
+
+    @property
+    def n_cols(self):
+        """Number of columns in bval/bvec file."""
+        return len(self.content[0])
+
+    @property
+    def n_rows(self):
+        """Number of rows in bval/bvec file."""
+        return len(self.content)
+
+
+@attrs.define
+class _SidecarLoader(Association):
+    """Generic loader for sidecar files."""
+
+    sidecar = attrs.field(init=False)
+
+    def __attrs_post_init__(self):
+        self.sidecar = load_sidecar(self._file)
+
+
+@attrs.define
+class _TSVLoader(Association):
+    """Generic loader for TSV files."""
+
+    content: Namespace = attrs.field(init=False)
+
+    def __attrs_post_init__(self):
+        self.content = load_tsv(self._file)
+
+
+@attrs.define
+class Aslcontext(_TSVLoader):
+    """Parses a BIDS ``*_aslcontext.tsv`` file for validation context extraction."""
+
+    @property
+    def volume_type(self):
+        """Contents of the volume_type column."""
+        return self.content.volume_type
+
+    @property
+    def n_rows(self):
+        """Number of rows in aslcontext.tsv."""
+        return len(self.volume_type)
+
+    def to_context(self) -> ctx.Aslcontext:
+        """Build the validation context representation for this association."""
+        return ctx.Aslcontext(path=self.path, n_rows=self.n_rows, volume_type=self.volume_type)
+
+
+@attrs.define
+class AtlasDescription(Association):
+    """Extracts the path of a BIDS ``atlas_description.json`` file for validation context."""
+
+    def to_context(self) -> ctx.AtlasDescription:
+        """Build the validation context representation for this association."""
+        return ctx.AtlasDescription(path=self.path)
+
+
+@attrs.define
+class BVec(_BValBVecLoader):
+    """Parses a BIDS ``*.bvec`` file for validation context extraction."""
+
+    def to_context(self) -> ctx.Bvec:
+        """Build the validation context representation for this association."""
+        return ctx.Bvec(
+            path=self.path,
+            n_cols=self.n_cols,
+            n_rows=self.n_rows,
+        )
+
+
+@attrs.define
+class BVal(_BValBVecLoader):
+    """Parses a BIDS ``*.bval`` file for validation context extraction."""
+
+    @property
+    def values(self):
+        """B-values contained in bval file."""
+        return self.content[0]
+
+    def to_context(self) -> ctx.Bval:
+        """Build the validation context representation for this association."""
+        return ctx.Bval(
+            path=self.path,
+            n_cols=self.n_cols,
+            n_rows=self.n_rows,
+            values=self.values,
+        )
+
+
+@attrs.define
+class Channels(_TSVLoader):
+    """Parses a BIDS ``*_channels.tsv`` file for validation context extraction."""
+
+    @property
+    def sampling_frequency(self):
+        """Contents of the sampling_frequency column."""
+        return self.content.sampling_frequency
+
+    @property
+    def short_channel(self):
+        """Contents of the short_channel column."""
+        return self.content.short_channel
+
+    @property
+    def type(self):
+        """Contents of the type column."""
+        return self.content.type
+
+    def to_context(self) -> ctx.Channels:
+        """Build the validation context representation for this association."""
+        return ctx.Channels(
+            path=self.path,
+            sampling_frequency=self.sampling_frequency,
+            short_channel=self.short_channel,
+            type=self.type,
+        )
+
+
+@attrs.define
+class Coordsystem(Association):
+    """Extracts the path of a BIDS ``*_coordsystem.json`` file for validation context."""
+
+    def to_context(self) -> ctx.Coordsystem:
+        """Build the validation context representation for this association."""
+        return ctx.Coordsystem(path=self.path)
+
+
+@attrs.define
+class Coordsystems:
+    """Aggregates BIDS ``*_coordsystem.json`` files for EMG validation context extraction."""
+
+    _files: Iterable[FileTree]
+
+    paths: list[str] = attrs.field(init=False, factory=list)
+    spaces: list[str] = attrs.field(init=False, factory=list)
+    parent_coordinate_systems: list[str] = attrs.field(init=False, factory=list)
+
+    def __attrs_post_init__(self) -> None:
+        for file in self._files:
+            self.paths.append(file.relative_path)
+
+            parts = FileParts.from_file(file)
+            if space := parts.entities.get('space'):
+                self.spaces.append(space)
+
+            sidecar = load_sidecar(file)
+            if parent := sidecar.get('ParentCoordinateSystem'):
+                self.parent_coordinate_systems.append(parent)
+
+    def to_context(self) -> ctx.Coordsystems:
+        """Build the validation context representation for this association."""
+        return ctx.Coordsystems(
+            paths=self.paths,
+            spaces=self.spaces,
+            ParentCoordinateSystems=self.parent_coordinate_systems,
+        )
+
+
+@attrs.define
+class Electrodes(Association):
+    """Extracts the path of a BIDS ``*_electrodes.tsv`` file for validation context."""
+
+    def to_context(self) -> ctx.Electrodes:
+        """Build the validation context representation for this association."""
+        return ctx.Electrodes(path=self.path)
+
+
+@attrs.define
+class Events(_TSVLoader, _SidecarLoader):
+    """Parses a BIDS ``*_events.tsv`` file and sidecar for validation context extraction."""
+
+    @property
+    def onset(self):
+        """Contents of the onset column."""
+        return self.content.onset
+
+    def to_context(self) -> ctx.Events:
+        """Build the validation context representation for this association."""
+        return ctx.Events(path=self.path, onset=self.onset, sidecar=self.sidecar)
+
+
+@attrs.define
+class M0Scan(Association):
+    """Extracts the path of a BIDS ``*_m0scan.nii[.gz]`` file for validation context."""
+
+    def to_context(self) -> ctx.M0scan:
+        """Build the validation context representation for this association."""
+        return ctx.M0scan(path=self.path)
+
+
+@attrs.define
+class Magnitude(Association):
+    """Extracts the path of a BIDS ``*_magnitude.nii[.gz]`` file for validation context."""
+
+    def to_context(self) -> ctx.Magnitude:
+        """Build the validation context representation for this association."""
+        return ctx.Magnitude(path=self.path)
+
+
+@attrs.define
+class Magnitude1(Association):
+    """Extracts the path of a BIDS ``*_magnitude1.nii[.gz]`` file for validation context."""
+
+    def to_context(self) -> ctx.Magnitude1:
+        """Build the validation context representation for this association."""
+        return ctx.Magnitude1(path=self.path)
+
+
+@attrs.define
+class Physio(_SidecarLoader):
+    """Parses a BIDS ``*_physio.tsv.gz`` sidecar for validation context extraction."""
+
+    def to_context(self) -> ctx.Physio:
+        """Build the validation context representation for this association."""
+        return ctx.Physio(path=self.path, sidecar=self.sidecar)
+
+
+# Specifies which class to use to evaluate a particular association type
+DISPATCHER = {
+    'aslcontext': Aslcontext,
+    'atlas_description': AtlasDescription,
+    'bval': BVal,
+    'bvec': BVec,
+    'channels': Channels,
+    'coordsystem': Coordsystem,
+    'coordsystems': Coordsystems,
+    'events': Events,
+    'm0scan': M0Scan,
+    'magnitude': Magnitude,
+    'magnitude1': Magnitude1,
+    'physio': Physio,
+}
+
+# Map from schema names to walk_back arg names
+TARGET_MAP = {
+    'suffix': 'target_suffix',
+    'extension': 'target_extensions',
+    'entities': 'target_entities',
+}
+
+
+def get_associations(association_vals, file_context: Context) -> FileTree | list[FileTree] | None:
+    """Find associated BIDS files matching selector rules via directory inheritance walk-back."""
+    selector_targets = {
+        func_key: val
+        for bst_key, func_key in TARGET_MAP.items()
+        if (val := getattr(association_vals.target, bst_key, None))
+    }
+
+    if all(el.interpret(rule, context=file_context) for rule in association_vals.selectors):
+        res = list(walk_back(file_context.file, association_vals.inherit, **selector_targets))
+        if len(res) == 1:
+            return res[0]
+        elif len(res) > 1:
+            return [r[0] for r in res if r]
+
+
 @attrs.define
 class FileParts:
     """BIDS-relevant components of a file path."""
@@ -475,7 +753,15 @@ class Context:
     @property
     def associations(self) -> ctx.Associations:
         """Associated files, indexed by suffix, selected according to the inheritance principle."""
-        return ctx.Associations()
+        associations = {}
+
+        for key, vals in self.schema.meta.associations.items():
+            a_file = get_associations(vals, self)
+
+            if a_file:
+                associations[key] = DISPATCHER[key](a_file).to_context()
+
+        return ctx.Associations(**associations)
 
     @property
     def columns(self) -> Namespace | None:

@@ -373,6 +373,32 @@ def _walk_back(
         tree = tree.parent
 
 
+@cache
+def load_bvecbval(file: FileTree):
+    """Load contents of a bvec or bval file."""
+    with file.path_obj.open() as fobj:
+        lines = fobj.read().splitlines()
+        return [line.split(" ") for line in lines]
+
+@attrs.define
+class _BValBVecLoader(Association):
+    """Generic loader class for BVal and BVec files."""
+
+    content: list = attrs.field(init=False)
+
+    def __attrs_post_init__(self):
+        self.content = load_bvecbval(self._file)
+
+    @property
+    def n_cols(self):
+        """Number of columns in bval/bvec file."""
+        return len(self.content[0])
+
+    @property
+    def n_rows(self):
+        """Number of rows in bval/bvec file."""
+        return len(self.content)
+
 @attrs.define
 class AtlasDescription(Association):
     """Extracts the path of a BIDS ``atlas_description.json`` file for validation context."""
@@ -380,6 +406,36 @@ class AtlasDescription(Association):
     def to_context(self) -> ctx.AtlasDescription:
         """Build the validation context representation for this association."""
         return ctx.AtlasDescription(path = self.path)
+
+@attrs.define
+class BVec(_BValBVecLoader):
+    """Parses a BIDS ``*.bvec`` file for validation context extraction."""
+
+    def to_context(self) -> ctx.Bvec:
+        """Build the validation context representation for this association."""
+        return ctx.Bvec(
+            path = self.path,
+            n_cols=self.n_cols,
+            n_rows=self.n_rows,
+        )
+
+@attrs.define
+class BVal(_BValBVecLoader):
+    """Parses a BIDS ``*.bval`` file for validation context extraction."""
+
+    @property
+    def values(self):
+        """B-values contained in bval file."""
+        return self.content[0]
+
+    def to_context(self) -> ctx.Bval:
+        """Build the validation context representation for this association."""
+        return ctx.Bval(
+            path = self.path,
+            n_cols=self.n_cols,
+            n_rows=self.n_rows,
+            values=self.values,
+        )
 
 @attrs.define
 class Coordsystem(Association):

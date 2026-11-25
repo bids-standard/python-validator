@@ -5,6 +5,7 @@ from __future__ import annotations
 import gzip
 import itertools
 import struct
+from collections.abc import Iterable
 from functools import cache
 
 import attrs
@@ -513,6 +514,36 @@ class Coordsystem(Association):
     def to_context(self) -> ctx.Coordsystem:
         """Build the validation context representation for this association."""
         return ctx.Coordsystem(path = self.path)
+
+@attrs.define
+class Coordsystems:
+    """Aggregates BIDS ``*_coordsystem.json`` files for EMG validation context extraction."""
+
+    _files: Iterable[FileTree]
+
+    paths: list[str] = attrs.field(init=False, factory=list)
+    spaces: list[str] = attrs.field(init=False, factory=list)
+    parent_coordinate_systems: list[str] = attrs.field(init=False, factory=list)
+
+    def __attrs_post_init__(self) -> None:
+        for file in self._files:
+            self.paths.append(file.relative_path)
+
+            parts = FileParts.from_file(file)
+            if space := parts.entities.get("space"):
+                self.spaces.append(space)
+
+            sidecar = load_sidecar(file)
+            if parent := sidecar.get("ParentCoordinateSystem"):
+                self.parent_coordinate_systems.append(parent)
+
+    def to_context(self) -> ctx.Coordsystems:
+        """Build the validation context representation for this association."""
+        return ctx.Coordsystems(
+            paths = self.paths,
+            spaces = self.spaces,
+            ParentCoordinateSystems = self.parent_coordinate_systems
+        )
 
 @attrs.define
 class Electrodes(Association):

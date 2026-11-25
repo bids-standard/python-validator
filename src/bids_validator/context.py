@@ -746,7 +746,16 @@ class Context:
     @property
     def associations(self) -> ctx.Associations:
         """Associated files, indexed by suffix, selected according to the inheritance principle."""
-        return ctx.Associations()
+
+        associations = {}
+
+        for key, vals in self.schema.meta.associations.items():
+            a_file = get_associations(vals, self)
+
+            if a_file:
+                associations[key] = DISPATCHER[key](a_file).to_context()
+
+        return ctx.Associations(**associations)
 
     @property
     def columns(self) -> Namespace | None:

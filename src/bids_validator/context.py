@@ -15,6 +15,7 @@ from bidsschematools.types import context as ctx
 from bidsschematools.types.namespace import Namespace
 from upath import UPath
 
+from . import expression_language as el
 from .types import _typings as t
 from .types.files import FileTree
 
@@ -620,6 +621,28 @@ DISPATCHER = {
     "magnitude1": Magnitude1,
     "physio": Physio,
 }
+
+# Map from schema names to walk_back arg names
+TARGET_MAP = {
+    "suffix": "target_suffix",
+    "extension": "target_extensions",
+    "entities": "target_entities"
+}
+
+def get_associations(association_vals, file_context: Context) -> FileTree | list[FileTree] | None:
+    """Find associated BIDS files matching selector rules via directory inheritance walk-back."""
+    selector_targets = {
+        func_key: val for bst_key, func_key in TARGET_MAP.items()
+        if (val := getattr(association_vals.target, bst_key, None))
+    }
+
+    if all(el.interpret(rule, context=file_context) for rule in association_vals.selectors):
+
+        res = list(walk_back(file_context.file, association_vals.inherit, **selector_targets))
+        if len(res) == 1:
+            return res[0]
+        elif len(res) > 1:
+            return [r[0] for r in res if r]
 
 @attrs.define
 class FileParts:

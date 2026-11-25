@@ -605,6 +605,21 @@ class Physio(_SidecarLoader):
             sidecar = self.sidecar
         )
 
+# Specifies which class to use to evaluate a particular association type
+DISPATCHER = {
+    "aslcontext": Aslcontext,
+    "atlas_description": AtlasDescription,
+    "bval": BVal,
+    "bvec": BVec,
+    "channels": Channels,
+    "coordsystem": Coordsystem,
+    "coordsystems": Coordsystems,
+    "events": Events,
+    "m0scan": M0Scan,
+    "magnitude": Magnitude,
+    "magnitude1": Magnitude1,
+    "physio": Physio,
+}
 
 @attrs.define
 class FileParts:

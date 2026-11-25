@@ -523,6 +523,23 @@ class Electrodes(Association):
         return ctx.Electrodes(path = self.path)
 
 @attrs.define
+class Events(_TSVLoader, _SidecarLoader):
+    """Parses a BIDS ``*_events.tsv`` file and sidecar for validation context extraction."""
+
+    @property
+    def onset(self):
+        """Contents of the onset column."""
+        return self.content.onset
+
+    def to_context(self) -> ctx.Events:
+        """Build the validation context representation for this association."""
+        return ctx.Events(
+            path = self.path,
+            onset = self.onset,
+            sidecar = self.sidecar
+        )
+
+@attrs.define
 class M0Scan(Association):
     """Extracts the path of a BIDS ``*_m0scan.nii[.gz]`` file for validation context."""
 

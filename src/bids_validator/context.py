@@ -400,6 +400,15 @@ class _BValBVecLoader(Association):
         return len(self.content)
 
 @attrs.define
+class _SidecarLoader(Association):
+    """Generic loader for sidecar files."""
+
+    sidecar = attrs.field(init=False)
+
+    def __attrs_post_init__(self):
+        self.sidecar = load_sidecar(self._file)
+
+@attrs.define
 class _TSVLoader(Association):
     """Generic loader for TSV files."""
 
@@ -536,6 +545,17 @@ class Magnitude1(Association):
     def to_context(self) -> ctx.Magnitude1:
         """Build the validation context representation for this association."""
         return ctx.Magnitude1(path = self.path)
+
+@attrs.define
+class Physio(_SidecarLoader):
+    """Parses a BIDS ``*_physio.tsv.gz`` sidecar for validation context extraction."""
+
+    def to_context(self)-> ctx.Physio:
+        """Build the validation context representation for this association."""
+        return ctx.Physio(
+            path = self.path,
+            sidecar = self.sidecar
+        )
 
 
 @attrs.define

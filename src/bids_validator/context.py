@@ -374,6 +374,55 @@ def _walk_back(
 
 
 @attrs.define
+class AtlasDescription(Association):
+    """Extracts the path of a BIDS ``atlas_description.json`` file for validation context."""
+
+    def to_context(self) -> ctx.AtlasDescription:
+        """Build the validation context representation for this association."""
+        return ctx.AtlasDescription(path = self.path)
+
+@attrs.define
+class Coordsystem(Association):
+    """Extracts the path of a BIDS ``*_coordsystem.json`` file for validation context."""
+
+    def to_context(self) -> ctx.Coordsystem:
+        """Build the validation context representation for this association."""
+        return ctx.Coordsystem(path = self.path)
+
+@attrs.define
+class Electrodes(Association):
+    """Extracts the path of a BIDS ``*_electrodes.tsv`` file for validation context."""
+
+    def to_context(self) -> ctx.Electrodes:
+        """Build the validation context representation for this association."""
+        return ctx.Electrodes(path = self.path)
+
+@attrs.define
+class M0Scan(Association):
+    """Extracts the path of a BIDS ``*_m0scan.nii[.gz]`` file for validation context."""
+
+    def to_context(self) -> ctx.M0scan:
+        """Build the validation context representation for this association."""
+        return ctx.M0scan(path = self.path)
+
+@attrs.define
+class Magnitude(Association):
+    """Extracts the path of a BIDS ``*_magnitude.nii[.gz]`` file for validation context."""
+
+    def to_context(self) -> ctx.Magnitude:
+        """Build the validation context representation for this association."""
+        return ctx.Magnitude(path = self.path)
+
+@attrs.define
+class Magnitude1(Association):
+    """Extracts the path of a BIDS ``*_magnitude1.nii[.gz]`` file for validation context."""
+
+    def to_context(self) -> ctx.Magnitude1:
+        """Build the validation context representation for this association."""
+        return ctx.Magnitude1(path = self.path)
+
+
+@attrs.define
 class FileParts:
     """BIDS-relevant components of a file path."""
 
